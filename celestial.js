@@ -181,18 +181,17 @@
             }));
             maxDist = Math.max(maxDist, 1);
 
-            // Su caja (zona fija de la pantalla) + ancla dentro de ella.
-            // Compute orbital position for this constellation
+            // Compute orbital position for this constellation (orbit around central Aquarius)
             const orbitRadius = ORBIT_RADIUS_FACTOR * Math.min(w, h) / 2;
             const angle = globalAngle + index * (2 * Math.PI / zodiac.length);
             const centerX = w / 2 + orbitRadius * Math.cos(angle);
             const centerY = h / 2 + orbitRadius * Math.sin(angle);
 
-            // Escala para que la constelación quepa dentro del espacio asignado
+            // Scale to fit within allocated space (same as before)
             const maxExt = Math.min(w, h) * 0.22;
             const scale = Math.min(2.6, Math.max(0.5, maxExt / (maxDist * 2)));
 
-            // Posiciona los puntos centrados y escalados alrededor del centro orbital
+            // Position points centered and scaled around the orbital center
             const packedLines = projLines.map((ln) =>
                 ln.map((p) => {
                     const localX = (p.x - (cx / n)) * scale;
@@ -206,8 +205,6 @@
 
             layout.set(constellation.id, {
                 lines: packedLines,
-                anchorX: anchorX,
-                anchorY: anchorY,
                 angle: angle,
                 scale: scale
             });
