@@ -942,3 +942,234 @@ body.constellation-complete .star-node .star-point {
         animation: none !important;
     }
 }
+
+/* ==========================================================================
+   Explorador interactivo del Zodíaco (constelaciones con datos reales)
+   Un solo <g> por constelación; las transformaciones se aplican ahí.
+   ========================================================================== */
+
+#open-zodiac {
+    position: fixed;
+    right: 14px;
+    bottom: 14px;
+    z-index: 900;
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 13px;
+    letter-spacing: 0.05em;
+    color: #ffd9ec;
+    padding: 9px 16px;
+    border-radius: 999px;
+    background: rgba(40, 30, 80, 0.7);
+    border: 1px solid rgba(255, 205, 235, 0.4);
+    backdrop-filter: blur(6px);
+    cursor: pointer;
+    transition: background 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+#open-zodiac:hover,
+#open-zodiac:focus-visible {
+    background: rgba(90, 60, 150, 0.8);
+    box-shadow: 0 0 18px rgba(167, 139, 250, 0.35);
+    transform: translateY(-1px);
+}
+
+/* Overlay de pantalla completa */
+#zodiac-viewer {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at 50% 38%, rgba(21, 22, 56, 0.94), rgba(5, 6, 15, 0.98));
+    backdrop-filter: blur(10px);
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+#zodiac-viewer.open {
+    display: flex;
+}
+
+#cz-topbar {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    width: min(560px, 92vw);
+    padding: 0 0 14px;
+}
+
+#cz-title {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-weight: 400;
+    font-size: 22px;
+    color: var(--text-main);
+    letter-spacing: 0.02em;
+}
+
+#cz-caption {
+    margin-left: auto;
+    font-family: var(--font-sans);
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+#cz-close {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 12px;
+    color: #ffd9ec;
+    padding: 7px 14px;
+    border-radius: 999px;
+    background: rgba(40, 30, 80, 0.7);
+    border: 1px solid rgba(255, 205, 235, 0.4);
+    backdrop-filter: blur(6px);
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+#cz-close:hover,
+#cz-close:focus-visible {
+    background: rgba(90, 60, 150, 0.8);
+}
+
+/* Escenario cuadrado (sin letterbox) para que el gesto sea proporcional */
+#cz-stage {
+    position: relative;
+    width: min(580px, 92vw);
+    aspect-ratio: 1 / 1;
+    border-radius: 18px;
+    overflow: hidden;
+    background: radial-gradient(circle at 50% 50%, rgba(30, 34, 80, 0.5), rgba(8, 9, 24, 0.8));
+    border: 1px solid rgba(224, 212, 255, 0.14);
+    box-shadow: 0 0 60px rgba(40, 30, 90, 0.35) inset;
+}
+
+#cz-svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    cursor: grab;
+}
+
+#cz-svg:active {
+    cursor: grabbing;
+}
+
+/* El grupo figura: TODAS las transformaciones ocurren aquí, nunca por estrella */
+.cz-line {
+    fill: none;
+    stroke: rgba(215, 230, 255, 0.6);
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    filter: drop-shadow(0 0 4px rgba(160, 200, 255, 0.35));
+}
+
+.cz-star {
+    fill: #ffffff;
+    filter: drop-shadow(0 0 5px rgba(196, 181, 253, 0.9));
+}
+
+.cz-star-glow {
+    fill: #ffffff;
+    opacity: 0.14;
+    pointer-events: none;
+}
+
+/* Herramientas (restablecer posición / rotación / zoom) */
+#cz-tools {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.tool-btn {
+    font-family: var(--font-sans);
+    font-weight: 400;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 7px 14px;
+    border-radius: 999px;
+    background: rgba(40, 30, 80, 0.55);
+    border: 1px solid rgba(224, 212, 255, 0.22);
+    cursor: pointer;
+    transition: color 0.25s ease, border-color 0.25s ease, background 0.25s ease;
+}
+
+.tool-btn:hover,
+.tool-btn:focus-visible {
+    color: var(--text-main);
+    border-color: rgba(224, 212, 255, 0.55);
+    background: rgba(80, 55, 140, 0.6);
+}
+
+/* Selector de las 12 constelaciones */
+#cz-switcher {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+    width: min(600px, 92vw);
+    margin-top: 14px;
+}
+
+.cz-sel {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 12px;
+    color: rgba(220, 235, 255, 0.75);
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: rgba(30, 26, 70, 0.5);
+    border: 1px solid rgba(224, 212, 255, 0.18);
+    cursor: pointer;
+    transition: color 0.25s ease, border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
+}
+
+.cz-sel .cz-sel-symbol {
+    font-family: var(--font-sans);
+    font-style: normal;
+    font-size: 11px;
+}
+
+.cz-sel:hover,
+.cz-sel:focus-visible {
+    color: var(--text-main);
+    border-color: rgba(224, 212, 255, 0.5);
+}
+
+.cz-sel.active {
+    color: #ffffff;
+    border-color: var(--accent-violet);
+    background: rgba(167, 139, 250, 0.22);
+    box-shadow: 0 0 14px rgba(167, 139, 250, 0.3);
+}
+
+/* Responsive del visor en pantallas pequeñas */
+@media (max-width: 640px) {
+    #cz-topbar {
+        gap: 10px;
+    }
+
+    #cz-title {
+        font-size: 18px;
+    }
+
+    #cz-caption {
+        font-size: 8px;
+        letter-spacing: 0.12em;
+    }
+}

@@ -351,7 +351,29 @@
 
     <button id="go-final" type="button" style="position:fixed;top:12px;left:12px;z-index:999;font-family:Inter,system-ui,sans-serif;font-size:12px;letter-spacing:.05em;padding:8px 12px;border-radius:999px;background:rgba(40,30,80,.65);border:1px solid rgba(255,205,235,.4);color:#ffd9ec;backdrop-filter:blur(6px);cursor:pointer;">ir al final</button>
 
+    <!-- Explorador interactivo del Zodíaco (datos reales) -->
+    <button id="open-zodiac" type="button">Explorar el zodíaco</button>
+
+    <div id="zodiac-viewer" role="dialog" aria-modal="true" aria-label="Explorador del zodíaco" hidden>
+        <div id="cz-topbar">
+            <h2 id="cz-title">Zodíaco</h2>
+            <span id="cz-caption">arrastra · pellizca · rota</span>
+            <button id="cz-close" type="button" aria-label="Cerrar">cerrar</button>
+        </div>
+        <div id="cz-stage">
+            <svg id="cz-svg" viewBox="0 0 720 720" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Constelación"></svg>
+        </div>
+        <div id="cz-tools" role="toolbar" aria-label="Ajustes">
+            <button class="tool-btn" type="button" data-reset="pos">posición</button>
+            <button class="tool-btn" type="button" data-reset="rot">rotación</button>
+            <button class="tool-btn" type="button" data-reset="zoom">zoom</button>
+        </div>
+        <nav id="cz-switcher" aria-label="Elegir constelación"></nav>
+    </div>
+
     <script src="celestial.js"></script>
+    <script src="zodiac-data.js"></script>
+    <script src="constellation-viewer.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
