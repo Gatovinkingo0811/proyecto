@@ -11,11 +11,15 @@
  * - Estilo: líneas semitransparentes rgba(255,255,255,0.3) y trazo fino;
  *   nodos principales con un sutil resplandor (shadowBlur).
  * - Zodíaco: solo se dibujan las 12 constelaciones de `zodiaco`.
- * - Halo circular: cada figura se normaliza a su centroide, se escala con zoom
- *   (1.5) y se traslada a un ángulo del anillo (reloj) alrededor del centro.
- * - Órbita: una rotación global continua (requestAnimationFrame) hace que las
- *   12 constelaciones giren como un halo; el centro y lo dibujado a mano
- *   (custom) permanecen fijos.
+ * - Halo circular: cada figura se normaliza a su centroide y se traslada a un
+ *   ángulo del anillo (reloj) alrededor del centro con zoom real (x3.5).
+ * - Órbita: `globalAngle` (declarada fuera de la animación, nunca se reinicia)
+ *   sube 0.001 por frame y se suma al ángulo de cada constelación; el bucle
+ *   `animate()` corre con requestAnimationFrame de forma continua y termina
+ *   siempre re-agendándose a sí mismo.
+ * - Alta resolución: el canvas usa inner*devicePixelRatio y el contexto se
+ *   escala con ctx.scale(dpr, dpr), por lo que los trazos son vectores nítidos
+ *   sin importar el zoom (anti-pixelado).
  * - Anomalía: la estrella de Charlotte se inyecta junto a un extremo de
  *   Géminis con una conexión delgada y un estilo rosado único, y sigue la
  *   normalización y traslación del halo (persiste con la figura).
@@ -59,6 +63,7 @@
         ctx: null,
         w: 0,
         h: 0,
+        dpr: 1,
         constellations: [],
         dataVersion: null,
         highlightedId: null,
@@ -66,11 +71,13 @@
         links: [],
         el: null,
         rafId: null,
-        ready: false,
-        // Rotación global del halo: avanza suavemente en cada frame para que las
-        // 12 constelaciones orbiten alrededor del centro sin perder la formación.
-        globalRotation: 0
+        ready: false
     };
+
+    // Rotación global del halo. Se declara FUERA y POR ENCIMA de la función de
+    // animación para que nunca se reinicie en cada frame; se suma al ángulo de
+    // cada constelación para que orbiten sin perder la formación circular.
+    let globalAngle = 0;
 
     /* ------------------------------------------------------------------ */
     /* Utilidades                                                          */
@@ -122,7 +129,7 @@
         const zodiac = sky.constellations.filter((c) => zodiaco.includes(c.id));
         const centerX = w / 2;
         const centerY = h / 2;
-        const radius = Math.min(w, h) * 0.38;
+        const radius = Math.min(w, h) * 0.4;
 
         const layout = new Map();
 
@@ -138,14 +145,15 @@
             projLines.forEach((ln) => ln.forEach((p) => { cx += p.x; cy += p.y; n += 1; }));
             if (!n) return;
 
-            // Ángulo del reloj + rotación global: las constelaciones orbitan
-            // alrededor del centro a una velocidad suave y celestial.
-            const angle = ((index / 12) * Math.PI * 2) + sky.globalRotation;
+            // Ángulo del reloj + rotación global (órbita continua).
+            const angle = ((index / 12) * Math.PI * 2) + globalAngle;
             const targetX = centerX + Math.cos(angle) * radius;
             const targetY = centerY + Math.sin(angle) * radius;
 
-            // Normalización (agrupación en 0,0), escala (zoom) y traslación.
-            const scale = 1.5;
+            // Normalización (agrupación en 0,0), zoom real (x3.5) y traslación:
+            // las coordenadas relativas de cada estrella se multiplican justo
+            // antes de llevarlas a su punto en el halo.
+            const scale = 3.5;
             const packedLines = projLines.map((ln) =>
                 ln.map((p) => ({
                     x: targetX + (p.x - (cx / n)) * scale,
@@ -356,59 +364,66 @@ function drawPackedConstellation(layout, ctx, highlight) {
         ctx.restore();
     }
 
-    function render(time) {
+    // Motor de animación principal. Estructura estricta:
+    //   1) Alta resolución (DPR): el canvas físico usa inner*devicePixelRatio y
+    //      el contexto se escala para dibujar en píxeles CSS → trazos vectoriales
+    //      nítidos sin importar el zoom.
+    //   2) clearRect al inicio (borra el frame anterior, sin estelas).
+    //   3) globalAngle += 0.001 (rotación orbital lenta y celestial).
+    //   4) Cálculo del ángulo por constelación: (index/12)·2π + globalAngle.
+    //   5) Termina obligatoriamente con requestAnimationFrame(animate).
+    function animate() {
         const ctx = sky.ctx;
-        const w = sky.w;
-        const h = sky.h;
-        if (!ctx) return;
+        const canvas = sky.canvas;
 
-        // Limpia el canvas correctamente en cada frame (evita estelas del giro).
-        ctx.clearRect(0, 0, sky.canvas.width, sky.canvas.height);
+        if (ctx && canvas && sky.w) {
+            const w = sky.w;
+            const h = sky.h;
+            const dpr = sky.dpr || 1;
 
-        // Halo: las 12 constelaciones del zodíaco en un anillo perfecto
-        // alrededor del centro (simula un reloj) y girando lentamente.
-        const halo = buildHaloLayout(w, h);
+            // Nitidez absoluta: ajuste a la densidad de píxeles del monitor.
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        halo.forEach((layout, id) => {
-            drawPackedConstellation(layout, ctx, id === sky.highlightedId);
-        });
+            // Rotación global continua del halo.
+            globalAngle += 0.001;
 
-        // Conexiones.
-        sky.links.forEach((link) => drawLink(link, ctx, w, h, time || 0));
+            // Halo: las 12 constelaciones del zodíaco girando alrededor del centro.
+            const halo = buildHaloLayout(w, h);
 
-        // Constelaciones personalizadas (encima de todo). Usan coordenadas
-        // relativas 0..1, así que permanecen FIJAS, independientes del giro:
-        // el texto central y la constelación principal no rotan con el halo.
-        sky.customs.forEach((custom) => drawCustom(custom, ctx, w, h, time || 0));
+            halo.forEach((layout, id) => {
+                drawPackedConstellation(layout, ctx, id === sky.highlightedId);
+            });
 
-        // La anomalía de Charlotte se dibuja una sola vez, al final del ciclo,
-        // sujeta a la misma normalización y traslación del halo (persistencia).
-        drawCharlotteAnomaly(halo.get('Gem'), ctx, w, h);
+            // Conexiones.
+            const now = performance.now();
+            sky.links.forEach((link) => drawLink(link, ctx, w, h, now));
+
+            // Constelaciones personalizadas (encima de todo). Usan coordenadas
+            // relativas 0..1, así que permanecen FIJAS, independientes del giro:
+            // el texto central y la constelación principal no rotan con el halo.
+            sky.customs.forEach((custom) => drawCustom(custom, ctx, w, h, now));
+
+            // La anomalía de Charlotte se dibuja una sola vez, al final del ciclo,
+            // sujeta a la misma normalización y traslación del halo (persistencia).
+            drawCharlotteAnomaly(halo.get('Gem'), ctx, w, h);
+        }
+
+        // El bucle nunca se detiene: la órbita es continua.
+        requestAnimationFrame(animate);
     }
 
     /* ------------------------------------------------------------------ */
-    /* Ciclo de animación (continuo: el halo gira siempre)               */
+    /* Arranque del motor de animación                                    */
     /* ------------------------------------------------------------------ */
 
-    function startAnimation() {
+    function startLoop() {
         if (sky.rafId) return;
-        let last = 0;
-        const FRAME_MS = 41; // ~24 fps: suficiente para el giro y las luces
-        const loop = (now) => {
-            if (now - last >= FRAME_MS) {
-                // Rotación global continua del halo (lenta, elegante y celestial).
-                sky.globalRotation += 0.001;
-                render(now);
-                last = now;
-            }
-            sky.rafId = requestAnimationFrame(loop);
-        };
-        sky.rafId = requestAnimationFrame(loop);
+        sky.rafId = requestAnimationFrame(animate);
     }
 
     function refresh() {
-        // La animación es continua: el halo gira siempre, haya o no luces extras.
-        startAnimation();
+        // La animación ya corre continua (animate + requestAnimationFrame).
     }
 
     /* ------------------------------------------------------------------ */
@@ -459,11 +474,21 @@ function drawPackedConstellation(layout, ctx, highlight) {
 
     function resize() {
         if (!sky.canvas) return;
+
         sky.w = window.innerWidth;
         sky.h = window.innerHeight;
-        sky.canvas.width = sky.w;
-        sky.canvas.height = sky.h;
-        refresh();
+        sky.dpr = window.devicePixelRatio || 1;
+
+        // Alta resolución: el canvas físico usa la densidad de píxeles real del
+        // monitor. Al escalar el contexto, se dibuja en píxeles CSS y los trazos
+        // quedan nítidos (vectores matemáticos) sin importar el zoom.
+        const canvas = sky.canvas;
+        canvas.width = Math.round(sky.w * sky.dpr);
+        canvas.height = Math.round(sky.h * sky.dpr);
+        canvas.style.width = sky.w + 'px';
+        canvas.style.height = sky.h + 'px';
+
+        sky.ready = Boolean(sky.ctx);
     }
 
     function init(canvasEl) {
@@ -476,6 +501,7 @@ function drawPackedConstellation(layout, ctx, highlight) {
         window.addEventListener('orientationchange', () => setTimeout(resize, 150));
         resize();
         loadData();
+        startLoop();
         return sky;
     }
 
@@ -547,4 +573,9 @@ function drawPackedConstellation(layout, ctx, highlight) {
         isReady: () => sky.ready,
         dataVersion: () => sky.dataVersion
     };
+
+    // Inicio del ciclo: se invoca una única vez al final del script para arrancar
+    // el motor de rotación. animate() se re-agenda solo con requestAnimationFrame,
+    // por lo que el halo orbita de forma continua desde la carga.
+    startLoop();
 }(window));
