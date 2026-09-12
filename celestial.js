@@ -699,6 +699,9 @@
     // El final la invoca tras la pausa de lectura: aparece, no al instante.
     function showCharlotte() {
         sky.showCharlotte = true;
+        document.body.classList.add('show-charlotte');
+        const geminiBox = document.querySelector('.box-gemini');
+        if (geminiBox) geminiBox.classList.add('gemini-charlotte-active');
         refresh();
     }
 

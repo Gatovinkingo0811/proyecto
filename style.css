@@ -73,22 +73,127 @@ html, body {
 
 
 
-/* Real celestial sky: mapa estelar con las constelaciones reales (RA/Dec)
-   dibujadas en canvas por celestial.js. Se revela al final. */
-#celestial-map {
+/* ==========================================================================
+   Contenedor del Zodíaco con vectores SVG fijos (no deformables)
+   ========================================================================== */
+#zodiac-container {
     position: fixed;
     inset: 0;
     width: 100%;
     height: 100%;
-    z-index: 2;
     pointer-events: none;
-    opacity: 0;
-    transition: opacity 2.4s ease 1.2s;
+    z-index: 2;
+    opacity: 0.35; /* Visible suavemente de fondo desde el inicio */
+    transition: opacity 2.4s ease 1s;
+    overflow: hidden;
 }
 
-/* El cielo se aleja al final y el mapa estelar real queda a la vista */
-body.constellation-complete #celestial-map {
+/* Al terminar Acuario o pulsar ir al final, el zodíaco resplandece al 100% */
+body.constellation-complete #zodiac-container {
     opacity: 1;
+}
+
+/* Las "cajas" que separan las constelaciones en la pantalla para que no se choquen */
+.constellation-box {
+    position: absolute;
+    width: 170px;
+    height: 170px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+/* Etiquetas elegantes para cada constelación */
+.constellation-label {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 11px;
+    font-style: italic;
+    color: rgba(220, 235, 255, 0.7);
+    letter-spacing: 0.1em;
+    margin-top: 4px;
+    text-shadow: 0 0 10px rgba(180, 210, 255, 0.45);
+    pointer-events: none;
+    user-select: none;
+}
+
+/* El giro ocurre solo por fuera; la forma interior permanece intacta */
+.constellation-svg {
+    width: 100%;
+    height: 100%;
+    transform-origin: center center;
+    animation: rotarConstelacion 60s linear infinite;
+    filter: drop-shadow(0 0 6px rgba(160, 200, 255, 0.5));
+}
+
+@keyframes rotarConstelacion {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Distribución en la periferia de la pantalla dejando el centro libre */
+.box-aries       { top: 4%;  left: 50%; transform: translateX(-50%); }
+.box-taurus      { top: 8%;  left: 74%; }
+.box-gemini      { top: 25%; right: 4%; }
+.box-cancer      { top: 50%; right: 3%; transform: translateY(-50%); }
+.box-leo         { bottom: 25%; right: 5%; }
+.box-virgo       { bottom: 8%; right: 22%; }
+.box-libra       { bottom: 4%; left: 50%; transform: translateX(-50%); }
+.box-scorpius    { bottom: 8%; left: 22%; }
+.box-sagittarius { bottom: 25%; left: 5%; }
+.box-capricorn   { top: 50%; left: 3%; transform: translateY(-50%); }
+.box-aquarius    { top: 25%; left: 4%; }
+.box-pisces      { top: 8%;  left: 24%; }
+
+/* Anomalía de Charlotte en Géminis */
+.box-gemini .charlotte-anomaly-dot,
+.box-gemini text,
+.box-gemini line[stroke-dasharray] {
+    opacity: 0;
+    transition: opacity 2.5s ease;
+}
+
+body.show-charlotte .box-gemini .charlotte-anomaly-dot,
+body.show-charlotte .box-gemini text,
+body.show-charlotte .box-gemini line[stroke-dasharray],
+.gemini-charlotte-active .charlotte-anomaly-dot,
+.gemini-charlotte-active text,
+.gemini-charlotte-active line[stroke-dasharray] {
+    opacity: 1;
+}
+
+.charlotte-anomaly-dot {
+    filter: drop-shadow(0 0 10px #ff69b4);
+    animation: charlottePulse 2.5s ease-in-out infinite alternate;
+}
+
+@keyframes charlottePulse {
+    from { r: 3.5; opacity: 0.85; }
+    to   { r: 5; opacity: 1; }
+}
+
+/* Responsive para pantallas móviles */
+@media (max-width: 768px) {
+    .constellation-box {
+        width: 105px;
+        height: 105px;
+    }
+    .constellation-label {
+        font-size: 9px;
+    }
+    .box-aries       { top: 2%;  left: 50%; }
+    .box-taurus      { top: 6%;  left: 72%; }
+    .box-gemini      { top: 22%; right: 2%; }
+    .box-cancer      { top: 48%; right: 1%; }
+    .box-leo         { bottom: 24%; right: 2%; }
+    .box-virgo       { bottom: 6%; right: 18%; }
+    .box-libra       { bottom: 2%; left: 50%; }
+    .box-scorpius    { bottom: 6%; left: 18%; }
+    .box-sagittarius { bottom: 24%; left: 2%; }
+    .box-capricorn   { top: 48%; left: 1%; }
+    .box-aquarius    { top: 22%; left: 2%; }
+    .box-pisces      { top: 6%;  left: 20%; }
 }
 
 /* Universe master container: holds Acuario, zooms out at the finale */
