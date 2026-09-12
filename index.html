@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#070714">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Para Charlotte ✨</title>
+    <meta name="description" content="Una constelación para alguien especial.">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Background starfield canvas -->
+    <canvas id="starfield" aria-hidden="true"></canvas>
+
+    <!-- Subtle nebula overlay -->
+    <div id="nebula" aria-hidden="true"></div>
+
+
+    <!-- Zodiac background (other 11 constellations, non-interactive) -->
+    <svg id="zodiac-background" aria-hidden="true"></svg>
+
+    <!-- Universe master container (zooms out at the finale) -->
+    <div id="universe-container">
+        <!-- Radial halo that emphasizes Aquarius on the full zodiac plane -->
+        <div id="aquarius-halo" aria-hidden="true"></div>
+
+        <!-- SVG for constellation connection lines -->
+        <svg id="constellation-lines" aria-hidden="true"></svg>
+
+        <!-- Interactive constellation stars -->
+        <div id="stars-container"></div>
+    </div>
+
+
+
+
+    <!-- Hint text -->
+    <div id="hint">toca la estrella que brilla</div>
+
+    <!-- Intro overlay -->
+    <div id="intro-overlay" role="dialog" aria-label="Introducción">
+        <div class="intro-content">
+            <p class="intro-subtitle">Una constelación para ti</p>
+            <h1 class="intro-title">Charlotte</h1>
+            <div class="intro-line"></div>
+            <p class="intro-hint">toca para comenzar</p>
+        </div>
+    </div>
+
+    <!-- Message modal -->
+    <div id="modal-overlay" role="dialog" aria-label="Mensaje de estrella">
+        <div id="modal">
+            <div id="modal-content">
+                <p id="modal-message"></p>
+            </div>
+            <button id="modal-close" type="button" aria-label="Continuar">
+                <span>continuar</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Finale overlay -->
+    <div id="finale-overlay" role="dialog" aria-label="Mensaje final">
+        <div id="finale-content">
+            <div id="finale-message"></div>
+            <p class="finale-sign">— Luis 💜</p>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
