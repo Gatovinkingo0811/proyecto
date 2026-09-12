@@ -157,192 +157,10 @@
         [12, 13]
     ];
 
-    // Las otras 11 constelaciones del zodíaco, dispuestas en anillo alrededor de
-    // Acuario (que ocupa el centro) para que ninguna pase por encima de la principal.
-    // Cada figura está definida en un plano 0-100 (x hacia la derecha, y hacia
-    // arriba, origen en la esquina inferior-izquierda), como se ven en las cartas
-    // del cielo. Cada forma se coloca en pantalla con:
-    //   anchor : esquina de su caja en % del viewport (izquierda y Y=100 del plano)
-    //   scale  : % del viewport que representa cada unidad del plano
-    // El eje Y se invierte al pasar a pantalla para que la figura no quede girada
-    // (se convierte con placeZodiac). linkNode opcional indica qué estrella de la
-    // constelación recibe la estrella de ella en el final.
-    const ZODIAC_CONSTELLATIONS = [
-        // Aries (Carnero) — línea quebrada con gancho
-        {
-            id: 'aries',
-            name: 'Aries',
-            anchor: [42, 5],
-            scale: 0.15,
-            linkNode: 0,
-            plane: {
-                stars: [[58, 45], [40, 50], [25, 65], [55, 25]],
-                lines: [[0, 1], [1, 2], [0, 3]]
-            }
-        },
-        // Taurus — la V de la cara con Aldebarán (α) debajo, los cuernos hacia
-        // arriba (ζ y β Elnath) y el racimo de las Pléyades a un lado
-        {
-            id: 'taurus',
-            name: 'Taurus',
-            anchor: [70, 6],
-            scale: 0.20,
-            linkNode: 0,
-            plane: {
-                stars: [[22, 42], [52, 50], [80, 40], [45, 18], [12, 78], [82, 85], [90, 72], [100, 66], [95, 56], [86, 60]],
-                lines: [[0, 1], [1, 2], [3, 0], [3, 1], [3, 2], [0, 4], [2, 5], [5, 6], [6, 7], [7, 8], [8, 9], [9, 5]]
-            }
-        },
-        // Gemini — los gemelos con la cabeza arriba, cuello, pecho, cadera, pies
-        // y los brazos con sus manos, tal como los dibuja una carta del cielo
-        {
-            id: 'gemini',
-            name: 'Gemini',
-            anchor: [79, 26],
-            scale: 0.18,
-            linkNode: 1,
-            plane: {
-                stars: [
-                    [30, 80],   // Cabeza_Castor
-                    [55, 90],   // Cabeza_Polux
-                    [10, 50],   // Brazo_Castor
-                    [35, 60],   // Pecho_Castor
-                    [50, 65],   // Pecho_Polux
-                    [45, 30],   // Cadera_Castor
-                    [40, 10],   // Pie_Ext_Castor
-                    [60, 15],   // Pie_Int_Castor
-                    [75, 50],   // Codo_Polux
-                    [90, 45],   // Mano_Alta_Polux
-                    [80, 35],   // Mano_Baja_Polux
-                    [65, 35],   // Cadera_Polux
-                    [75, 10]    // Pie_Polux
-                ],
-                lines: [
-                    [0, 3],   // Cabeza_Castor – Pecho_Castor
-                    [2, 3],   // Brazo_Castor – Pecho_Castor
-                    [1, 4],   // Cabeza_Polux – Pecho_Polux
-                    [3, 4],   // Pecho_Castor – Pecho_Polux
-                    [3, 5],   // Pecho_Castor – Cadera_Castor
-                    [5, 6],   // Cadera_Castor – Pie_Ext_Castor
-                    [5, 7],   // Cadera_Castor – Pie_Int_Castor
-                    [4, 11],  // Pecho_Polux – Cadera_Polux
-                    [11, 12], // Cadera_Polux – Pie_Polux
-                    [4, 8],   // Pecho_Polux – Codo_Polux
-                    [8, 9],   // Codo_Polux – Mano_Alta_Polux
-                    [8, 10]   // Codo_Polux – Mano_Baja_Polux
-                ]
-            }
-        },
-        // Cancer — pequeña Y del cangrejo, acostada sobre el lado derecho
-        {
-            id: 'cancer',
-            name: 'Cancer',
-            anchor: [82, 48],
-            scale: 0.15,
-            linkNode: 0,
-            plane: {
-                stars: [[42, 85], [38, 62], [58, 45], [28, 45], [30, 22]],
-                lines: [[0, 1], [1, 2], [1, 3], [3, 4]]
-            }
-        },
-        // Leo — la hoz (Régulo abajo) y el cuerpo triangular hasta Denébola
-        {
-            id: 'leo',
-            name: 'Leo',
-            anchor: [74, 70],
-            scale: 0.16,
-            linkNode: 0,
-            plane: {
-                stars: [[30, 18], [40, 40], [52, 58], [48, 78], [60, 85], [66, 68], [60, 46], [75, 52], [86, 60], [96, 52]],
-                lines: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 8], [8, 9], [5, 7]]
-            }
-        },
-        // Virgo — la Y de Espiga (abajo), Porrima (arriba-izquierda) y Vindemiatrix
-        {
-            id: 'virgo',
-            name: 'Virgo',
-            anchor: [58, 78],
-            scale: 0.16,
-            linkNode: 0,
-            plane: {
-                stars: [[35, 10], [42, 42], [75, 40], [25, 35]],
-                lines: [[0, 1], [1, 2], [1, 3]]
-            }
-        },
-        // Libra — el rombo de la balanza con sus platillos
-        {
-            id: 'libra',
-            name: 'Libra',
-            anchor: [40, 82],
-            scale: 0.14,
-            linkNode: 0,
-            plane: {
-                stars: [[30, 60], [65, 65], [42, 28], [72, 32]],
-                lines: [[0, 1], [1, 3], [3, 2], [2, 0]]
-            }
-        },
-        // Scorpius — cabeza y corazón (Antares) con la gran cola en J hasta el aguijón
-        {
-            id: 'scorpius',
-            name: 'Scorpius',
-            anchor: [6, 76],
-            scale: 0.16,
-            linkNode: 0,
-            plane: {
-                stars: [[72, 72], [82, 82], [68, 78], [55, 50], [48, 58], [42, 70], [30, 78], [22, 70], [10, 62], [6, 72]],
-                lines: [[3, 0], [0, 1], [3, 2], [3, 4], [4, 5], [5, 6], [6, 7], [7, 8], [8, 9], [6, 8]]
-            }
-        },
-        // Sagittarius — la tetera: tapa, asa y pico
-        {
-            id: 'sagittarius',
-            name: 'Sagittarius',
-            anchor: [5, 56],
-            scale: 0.17,
-            linkNode: 0,
-            plane: {
-                stars: [[25, 60], [45, 62], [70, 55], [75, 30], [45, 15], [20, 18], [5, 35], [5, 55]],
-                lines: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 0]]
-            }
-        },
-        // Capricornus — el triángulo de la cabra-marino
-        {
-            id: 'capricornus',
-            name: 'Capricornus',
-            anchor: [5, 34],
-            scale: 0.17,
-            linkNode: 0,
-            plane: {
-                stars: [[65, 70], [30, 45], [45, 20], [15, 30], [75, 35]],
-                lines: [[0, 1], [1, 2], [2, 3], [1, 4]]
-            }
-        },
-        // Pisces — el círculo de un pez unido por la cuerda al otro
-        {
-            id: 'pisces',
-            name: 'Pisces',
-            anchor: [7, 12],
-            scale: 0.16,
-            linkNode: 0,
-            plane: {
-                stars: [[40, 70], [62, 75], [75, 60], [70, 40], [50, 42], [30, 35], [20, 50]],
-                lines: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 0], [4, 5], [5, 6]]
-            }
-        }
-    ];
-
-    // Convierte el plano 0-100 (y hacia arriba) de cada constelación en
-    // porcentajes reales de pantalla, invirtiendo el eje Y para que la figura
-    // conserve su orientación tal como se ve en el cielo.
-    ZODIAC_CONSTELLATIONS.forEach(cz => {
-        const [ax, ay] = cz.anchor;
-        const s = cz.scale;
-        cz.stars = cz.plane.stars.map(([px, py]) => [
-            +(ax + s * px).toFixed(2),
-            +(ay + s * (100 - py)).toFixed(2)
-        ]);
-        cz.lines = cz.plane.lines;
-    });
+    // El cielo estelar real (todas las constelaciones con RA/Dec) se dibuja en
+    // el <canvas id="celestial-map"> mediante celestial.js. En el final, el zoom
+    // out revela ese cielo y la estrella de ella se enciende junto a su constelación
+    // (Géminis), que alumbra y se conecta con dicha estrella vía setLink().
 
     // Los textos del final se escenifican en showFinale() por fases,
     // intercalados con el zoom out, la estrella misteriosa y la firma.
@@ -359,7 +177,7 @@
     // Elementos del DOM
     const starsContainer = document.getElementById('stars-container');
     const svgLines = document.getElementById('constellation-lines');
-    const zodiacBackground = document.getElementById('zodiac-background');
+    const celestialMap = document.getElementById('celestial-map');
     const universeContainer = document.getElementById('universe-container');
     const hintElement = document.getElementById('hint');
     const introOverlay = document.getElementById('intro-overlay');
@@ -754,7 +572,7 @@
             width = canvas.width = window.innerWidth;
             height = canvas.height = window.innerHeight;
             renderConstellation();
-            renderZodiacBackground();
+            if (window.CelestialSky) CelestialSky.resize();
         };
 
         window.addEventListener('resize', handleResize);
@@ -890,77 +708,6 @@
         });
     }
 
-    // --- FONDO DEL ZODÍACO (resto de constelaciones, no interactivas) ---
-    function renderZodiacBackground() {
-        if (!zodiacBackground) return;
-        zodiacBackground.innerHTML = '';
-
-        const w = window.innerWidth;
-        const h = window.innerHeight;
-
-        ZODIAC_CONSTELLATIONS.forEach((cz, idx) => {
-            const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-            group.setAttribute('class', 'zodiac-group');
-            group.setAttribute('id', 'zodiac-' + cz.id);
-
-            // Grupo interno animado: cada constelación gira y se mece con su propio ritmo
-            const glider = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-            glider.setAttribute('class', 'zodiac-glide');
-
-            const orbitDur = 8 + (idx * 5) % 10;
-            const amp = 2.8 + (idx % 4) * 0.8;
-            const bob = 3 + (idx % 3) * 2;
-
-            glider.style.setProperty('--orbit-dur', orbitDur + 's');
-            glider.style.setProperty('--rot-a', (-amp).toFixed(2) + 'deg');
-            glider.style.setProperty('--rot-b', amp.toFixed(2) + 'deg');
-            glider.style.setProperty('--bob', bob + 'px');
-            glider.style.setProperty('--glide-delay', (-(idx * 1.9)).toFixed(2) + 's');
-
-            const pts = cz.stars.map(([px, py]) => ({ x: (px / 100) * w, y: (py / 100) * h }));
-
-            cz.lines.forEach(([ia, ib], li) => {
-                const a = pts[ia];
-                const b = pts[ib];
-                if (!a || !b) return;
-                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                line.setAttribute('x1', a.x);
-                line.setAttribute('y1', a.y);
-                line.setAttribute('x2', b.x);
-                line.setAttribute('y2', b.y);
-                line.setAttribute('class', 'zodiac-line');
-                line.style.setProperty('--flow-delay', ((li * 0.37) % 2).toFixed(2) + 's');
-                glider.appendChild(line);
-            });
-
-            pts.forEach((p, pi) => {
-                const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                dot.setAttribute('cx', p.x);
-                dot.setAttribute('cy', p.y);
-                dot.setAttribute('r', 2.2);
-                dot.setAttribute('class', 'zodiac-dot');
-                dot.style.setProperty('--pulse-dur', (2.8 + (pi % 3) * 0.9).toFixed(2) + 's');
-                dot.style.setProperty('--pulse-delay', ((pi * 0.63) % 3).toFixed(2) + 's');
-                glider.appendChild(dot);
-            });
-
-            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            const center = pts.reduce((acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }), { x: 0, y: 0 });
-            center.x /= pts.length;
-            center.y /= pts.length;
-            const labelY = center.y / h > 0.55 ? center.y - 12 : center.y + 10;
-            label.setAttribute('x', center.x);
-            label.setAttribute('y', labelY);
-            label.setAttribute('class', 'zodiac-name');
-            label.style.setProperty('--glow-delay', (-(idx * 2.3) % 5).toFixed(2) + 's');
-            label.textContent = cz.name;
-            glider.appendChild(label);
-
-            group.appendChild(glider);
-            zodiacBackground.appendChild(group);
-        });
-    }
-
     // Interacción al presionar una estrella
     function onStarClick(star) {
         const now = Date.now();
@@ -1080,33 +827,57 @@
         }, delay);
     }
 
-    // Conecta la estrella de ella (elemento HTML fijo) con la constelación de
-    // Luis (SVG): una línea luminosa que nace en un nodo extremo de la figura
-    // (linkNode, la punta de Géminis) y llega a la estrella, para que el trazo
-    // quede de una sola pieza y no cruce el dibujo de la constelación.
-    function connectMysteryStar() {
-        const geminiGroup = document.getElementById('zodiac-gemini');
-        if (!geminiGroup) return;
-        const cz = ZODIAC_CONSTELLATIONS.find(c => c.id === 'gemini');
-        if (!cz) return;
-        const w = window.innerWidth;
-        const h = window.innerHeight;
-        const link = cz.linkNode != null ? cz.stars[cz.linkNode] : cz.stars[0];
-        if (!link) return;
-        const tx = (link[0] / 100) * w;
-        const ty = (link[1] / 100) * h;
+    // Conecta la estrella de ella (elemento HTML fijo) con su constelación en el
+    // cielo real (canvas): Géminis se ilumina y una línea continua nace en una
+    // de sus cabezas (β Gem / Pólux) y llega hasta la estrella, sin cruzarla.
+    const GEMINI_POLLUX_RA = 113.6494;
+    const GEMINI_POLLUX_DEC = 31.8883;
 
+    // Coloca la estrella de ella junto a las cabezas de Géminis (coordenadas del
+    // mapa real proyectadas a la ventana).
+    function placeMysteryStarNearPollux() {
+        const herPos = CelestialSky.project(GEMINI_POLLUX_RA + 4.5, GEMINI_POLLUX_DEC + 5.5);
+        mysteryStar.style.left = herPos.x + 'px';
+        mysteryStar.style.top = herPos.y + 'px';
+    }
+
+    function connectMysteryStar() {
+        if (!window.CelestialSky) return;
+        placeMysteryStarNearPollux();
+        CelestialSky.highlight('Gem');
+        const from = CelestialSky.project(GEMINI_POLLUX_RA, GEMINI_POLLUX_DEC);
         const rect = mysteryStar.getBoundingClientRect();
-        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        line.setAttribute('x1', tx);
-        line.setAttribute('y1', ty);
-        line.setAttribute('x2', rect.left + rect.width / 2);
-        line.setAttribute('y2', rect.top + rect.height / 2);
-        line.setAttribute('class', 'mystery-connect');
-        zodiacBackground.appendChild(line);
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => line.classList.add('show'));
+        CelestialSky.setLink(
+            { x: from.x, y: from.y },
+            { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+        );
+    }
+
+    // La constelación de ella, dibujada sobre el cielo real en el momento en que
+    // su estrella recibe el nombre: una figura pequeña que solo ella posee.
+    let herConstellationId = null;
+    function revealHerConstellation() {
+        if (!window.CelestialSky) return;
+        if (herConstellationId) CelestialSky.removeCustom(herConstellationId);
+        const rect = mysteryStar.getBoundingClientRect();
+        const cx = (rect.left + rect.width / 2) / window.innerWidth;
+        const cy = (rect.top + rect.height / 2) / window.innerHeight;
+        const r = 0.03;
+        const nodes = [
+            [cx, cy + 1.5 * r],
+            [cx - 1.15 * r, cy + 0.25 * r],
+            [cx - 1.35 * r, cy - 0.55 * r],
+            [cx - 0.55 * r, cy - 0.95 * r],
+            [cx, cy - 0.5 * r],
+            [cx + 0.55 * r, cy - 0.95 * r],
+            [cx + 1.35 * r, cy - 0.55 * r],
+            [cx + 1.15 * r, cy + 0.25 * r]
+        ];
+        const edges = [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 0]];
+        const custom = CelestialSky.drawCustomConstellation('Charlotte', nodes, edges, {
+            color: 'rgba(255, 182, 224, 0.95)'
         });
+        herConstellationId = custom.id;
     }
 
     // Pantalla de cierre: una pequeña historia final escenificada.
@@ -1128,8 +899,6 @@
         // Pequeña pausa con Acuario completa brillando antes del zoom
         setTimeout(() => {
             universeContainer.classList.add('zoom-out');
-            zodiacBackground.classList.add('visible');
-            renderZodiacBackground();
             meteorShowerActive = true;
             showerIntensity = 2;
             finaleOverlay.classList.add('show');
@@ -1159,8 +928,6 @@
             mysteryStar.classList.add('visible');
             triggerHaptic('light');
             playMysteryNote();
-            const geminiGroup = document.getElementById('zodiac-gemini');
-            if (geminiGroup) geminiGroup.classList.add('gemini-glow');
             connectMysteryStar();
         }, mysteryTime);
 
@@ -1174,11 +941,12 @@
         // La estrella que nadie más tiene lleva el nombre de ella
         addFinaleParagraph("Esa estrella lleva tu nombre.", mysteryTime + 7000);
 
-        // La estrella recibe su nombre: Charlotte
+        // La estrella recibe su nombre: Charlotte, y su constelación se dibuja sobre el cielo
         const nameTime = mysteryTime + 8600;
         setTimeout(() => {
             mysteryCaption.textContent = 'Charlotte';
             mysteryCaption.classList.add('named');
+            revealHerConstellation();
             triggerHaptic('light');
         }, nameTime);
 
@@ -1236,7 +1004,7 @@
     function startApp() {
         setupStarfield();
         renderConstellation();
-        renderZodiacBackground();
+        if (window.CelestialSky && celestialMap) CelestialSky.init(celestialMap);
         updateProgress();
     }
 

@@ -18,9 +18,8 @@
     <!-- Subtle nebula overlay -->
     <div id="nebula" aria-hidden="true"></div>
 
-
-    <!-- Zodiac background (other 11 constellations, non-interactive) -->
-    <svg id="zodiac-background" aria-hidden="true"></svg>
+    <!-- Real celestial sky (all constellations, drawn on canvas) -->
+    <canvas id="celestial-map" aria-hidden="true"></canvas>
 
     <!-- Universe master container (zooms out at the finale) -->
     <div id="universe-container">
@@ -83,6 +82,7 @@
 
     <button id="go-final" type="button" style="position:fixed;top:12px;left:12px;z-index:999;font-family:Inter,system-ui,sans-serif;font-size:12px;letter-spacing:.05em;padding:8px 12px;border-radius:999px;background:rgba(40,30,80,.65);border:1px solid rgba(255,205,235,.4);color:#ffd9ec;backdrop-filter:blur(6px);cursor:pointer;">ir al final</button>
 
+    <script src="celestial.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
