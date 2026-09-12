@@ -44,21 +44,27 @@
 
     const DATA_URL = 'https://raw.githubusercontent.com/ofrohn/d3-celestial/master/data/constellations.lines.json';
 
-    // --- Data de respaldo (varias constelaciones reconocibles con RA/Dec reales)
-    // --- por si el fetch falla (funciona sin conexión).
+    // --- Data de respaldo completa con las 11 constelaciones del zodíaco
+    // --- (RA/Dec reales astronómicas de d3-celestial) para que siempre se
+    // --- muestren de forma inmediata y nítida, incluso sin conexión.
     const FALLBACK_CONSTELLATIONS = {
-        Gem: [[[93.7194, 22.5068], [95.7401, 22.5136], [100.983, 25.1311], [107.7849, 30.2452], [113.6494, 31.8883], [116.329, 28.0262], [113.9806, 26.8957], [110.0307, 21.9823], [106.0272, 20.5703], [99.4279, 16.3993], [101.3224, 12.8956]], [[110.0307, 21.9823], [109.5232, 16.5404]]],
+        Ari: [[[42.496, 27.2605], [31.7934, 23.4624], [28.66, 20.808], [28.3826, 19.2939]]],
         Tau: [[[84.4112, 21.1425], [68.9802, 16.5093], [67.1656, 15.8709], [64.9483, 15.6276], [65.7337, 17.5425], [67.1542, 19.1804], [81.573, 28.6075]], [[64.9483, 15.6276], [60.1701, 12.4903], [51.7923, 9.7327], [60.7891, 5.9893]], [[51.7923, 9.7327], [51.2033, 9.0289], [54.2183, 0.4017]]],
+        Gem: [[[93.7194, 22.5068], [95.7401, 22.5136], [100.983, 25.1311], [107.7849, 30.2452], [113.6494, 31.8883], [116.329, 28.0262], [113.9806, 26.8957], [110.0307, 21.9823], [106.0272, 20.5703], [99.4279, 16.3993], [101.3224, 12.8956]], [[110.0307, 21.9823], [109.5232, 16.5404]]],
+        Cnc: [[[134.6218, 11.8577], [131.1712, 18.1543], [130.8214, 21.4685], [131.6666, 28.7651]], [[131.1712, 18.1543], [124.1288, 9.1855]]],
         Leo: [[[152.093, 11.9672], [151.8331, 16.7627], [154.9931, 19.8415], [168.5271, 20.5237], [177.2649, 14.5721], [168.56, 15.4296], [152.093, 11.9672]], [[154.9931, 19.8415], [154.1726, 23.4173], [148.1909, 26.007], [146.4628, 23.7743]]],
+        Vir: [[[176.4648, 6.5294], [177.6738, 1.7647], [-175.0235, -0.6668], [-169.5848, -1.4494], [-162.5125, -5.539], [-158.7018, -11.1613], [-145.9964, -6.0005], [-139.2349, -5.6582]], [[-164.4558, 10.9592], [-166.0991, 3.3975], [-169.5848, -1.4494]], [[-162.5125, -5.539], [-156.3267, -0.5958], [-149.5884, 1.5445], [-138.4378, 1.8929]]],
+        Lib: [[[-133.9824, -25.282], [-137.2804, -16.0418], [-130.7483, -9.3829], [-126.1184, -14.7895], [-125.744, -28.1351], [-125.336, -29.7778]], [[-137.2804, -16.0418], [-126.1184, -14.7895]]],
         Sco: [[[-120.287, -26.1141], [-119.9166, -22.6217], [-118.6407, -19.8055]], [[-119.9166, -22.6217], [-114.7028, -25.5928], [-112.6481, -26.432], [-111.0294, -28.216], [-107.4591, -34.2932], [-107.0324, -38.0474], [-106.3541, -42.3613], [-101.9617, -43.2392], [-95.6703, -42.9978], [-93.1038, -40.127], [-94.378, -39.03], [-96.5978, -37.1038]]],
         Sgr: [[[-85.5932, -36.7617], [-83.957, -34.3846], [-84.7515, -29.8281], [-83.0073, -25.4217], [-86.5591, -21.0588]], [[-69.3404, -44.459], [-69.0284, -40.6159], [-74.347, -29.8801], [-78.5859, -26.9908], [-83.0073, -25.4217]], [[-61.1846, -41.8683], [-60.0659, -35.2763], [-61.0402, -26.2995], [-65.8232, -24.8836], [-68.6813, -24.5086], [-71.1149, -25.2567], [-76.1836, -26.2967], [-78.5859, -26.9908], [-84.7515, -29.8281], [-88.548, -30.4241], [-83.957, -34.3846], [-74.347, -29.8801], [-73.265, -27.6704], [-76.1836, -26.2967], [-73.8292, -21.7415], [-72.559, -21.0236], [-70.5913, -18.9529], [-69.5818, -17.8472], [-69.5682, -15.955]], [[-73.8292, -21.7415], [-75.5675, -21.1067], [-76.4576, -22.7448], [-76.1836, -26.2967]]],
+        Cap: [[[-55.588, -12.5082], [-54.7472, -14.7814], [-52.7849, -17.8137], [-48.4761, -25.2709], [-47.0446, -26.9191], [-38.3332, -22.4113], [-33.2398, -16.1273], [-34.9773, -16.6623], [-39.4383, -16.8345], [-43.5132, -17.2329], [-55.588, -12.5082]]],
+        Psc: [[[18.4373, 24.5837], [17.9152, 30.0896], [19.8666, 27.2641], [18.4373, 24.5837], [17.8634, 21.0347], [22.8709, 15.3458], [26.3485, 9.1577], [30.5118, 2.7638], [28.389, 3.1875], [25.3579, 5.4876], [22.5463, 6.1438], [18.4329, 7.5754], [15.7359, 7.8901], [12.1706, 7.5851], [-0.1721, 6.8633], [-5.0123, 5.6263], [-8.0079, 6.379], [-9.9142, 5.3813], [-10.7086, 3.2823], [-8.2669, 1.2556], [-4.4883, 1.78], [-3.402, 3.4868], [-5.0123, 5.6263]], [[-10.7086, 3.2823], [-14.0308, 3.82]]],
         Ori: [[[91.893, 14.7685], [88.5958, 20.2762], [90.9799, 20.1385], [92.985, 14.2088], [90.5958, 9.6473], [88.7929, 7.4071], [81.2828, 6.3497], [73.7239, 10.1508]], [[74.6371, 1.714], [73.5629, 2.4407], [72.8015, 5.6051], [72.46, 6.9613], [72.653, 8.9002], [73.7239, 10.1508], [74.0928, 13.5145], [76.1423, 15.4041], [77.4248, 15.5972]], [[78.6345, -8.2016], [81.1192, -2.3971], [83.0017, -0.2991], [81.2828, 6.3497], [83.7845, 9.9342], [88.7929, 7.4071], [85.1897, -1.9426], [86.9391, -9.6696]], [[85.1897, -1.9426], [84.0534, -1.2019], [83.0017, -0.2991]]],
         Cas: [[[28.5989, 63.6701], [21.454, 60.2353], [14.1772, 60.7167], [10.1268, 56.5373], [2.2945, 59.1498]]],
         UMa: [[[-176.1435, 57.0326], [165.932, 61.751], [165.4603, 56.3824], [178.4577, 53.6948], [-176.1435, 57.0326], [-166.4927, 55.9598], [-159.0186, 54.9254], [-153.1148, 49.3133]], [[178.4577, 53.6948], [176.5126, 47.7794], [169.6197, 33.0943], [169.5468, 31.5308]], [[176.5126, 47.7794], [167.4159, 44.4985], [155.5823, 41.4995]], [[167.4159, 44.4985], [154.2741, 42.9144]], [[165.932, 61.751], [142.8821, 63.0619], [127.5661, 60.7182], [147.7473, 59.0387], [165.4603, 56.3824]], [[165.4603, 56.3824], [148.0265, 54.0643], [143.2143, 51.6773], [134.8019, 48.0418]], [[135.9064, 47.1565], [143.2143, 51.6773]]]
     };
 
-    // Puntos que definen la CONSTELACIÓN REAL y su estética (igual proyección
-    // que el resto del cielo: RA en grados, Dec en grados).
+    // Color de realce para constelaciones seleccionadas
     const HIGHLIGHT_COLOR = 'rgba(255, 171, 216, 0.9)';
 
     // Filtro del zodíaco: solo estas 12 constelaciones se dibujan en el mapa.
@@ -70,8 +76,11 @@
         w: 0,
         h: 0,
         dpr: 1,
-        constellations: [],
-        dataVersion: null,
+        constellations: Object.keys(FALLBACK_CONSTELLATIONS).map((id) => ({
+            id,
+            lines: FALLBACK_CONSTELLATIONS[id]
+        })),
+        dataVersion: 'builtin',
         highlightedId: null,
         customs: [],
         links: [],
@@ -81,38 +90,49 @@
         showCharlotte: false
     };
 
-    // Rotación global del halo. Se declara FUERA y POR ENCIMA de la función de
-    // animación para que nunca se reinicie en cada frame; se suma al ángulo de
-    // cada constelación para que orbiten sin perder la formación circular.
+    // Rotación global del halo orbital. Se incrementa suavemente en cada frame.
     let globalAngle = 0;
 
     /* ------------------------------------------------------------------ */
-    /* Utilidades                                                          */
+    /* Utilidades de Proyección Astronómica                                */
     /* ------------------------------------------------------------------ */
 
     function normalize(angle) {
         return ((angle % 360) + 360) % 360;
     }
 
-    // Proyección equirectangular: RA(deg) en el eje X, Dec(deg) en el eje Y.
-    // El ángulo se "desenvuelve" por línea para que las constelaciones que
-    // cruzan la costura 0/360º no tracen líneas por toda la pantalla.
-    function projectLineCoords(points, w, h) {
-        const out = [];
-        let prev = null;
-        points.forEach((p) => {
-            let a = normalize(p[0]);
-            if (prev !== null) {
-                while (a - prev > 180) a -= 360;
-                while (a - prev < -180) a += 360;
+    // Proyección con desenvoltura de RA para una constelación completa:
+    // Evita que constelaciones que cruzan 0°/360° o 180°/-180° (como Piscis o Virgo)
+    // se desgarren o se expandan por toda la pantalla.
+    function projectConstellationLines(lines, w, h) {
+        if (!lines || !lines.length) return [];
+
+        // Buscar el primer punto válido como referencia de RA para la constelación
+        let refRA = null;
+        for (const line of lines) {
+            if (line && line.length && line[0]) {
+                refRA = normalize(line[0][0]);
+                break;
             }
-            prev = a;
-            out.push({
-                x: (a / 360) * w,
-                y: ((90 - p[1]) / 180) * h
+        }
+        if (refRA === null) refRA = 0;
+
+        return lines.map((line) => {
+            let prev = refRA;
+            return line.map((p) => {
+                let ra = normalize(p[0]);
+                let diff = ra - prev;
+                while (diff > 180) diff -= 360;
+                while (diff < -180) diff += 360;
+                const unwrappedRA = prev + diff;
+                prev = unwrappedRA;
+                const dec = p[1];
+                return {
+                    x: (unwrappedRA / 360) * w,
+                    y: ((90 - dec) / 180) * h
+                };
             });
         });
-        return out;
     }
 
     function projectPoint(raDeg, decDeg, w, h) {
@@ -123,58 +143,52 @@
     }
 
     /* ------------------------------------------------------------------ */
-    /* Render                                                              */
+    /* Render y Layout Orbital                                            */
     /* ------------------------------------------------------------------ */
 
-    // Constelación principal (Acuario): SIEMPRE FIJA en el centro (fuera de las
-    // cajas). El resto del zodíaco se reparte en cajas propias por la pantalla.
+    // Constelación principal (Acuario): SIEMPRE FIJA en el centro (fuera del halo).
     const MAIN_ID = 'Aqr';
 
-    // "Cajas" (wrappers) del giro: cada constelación tiene SU PROPIA zona fija
-    // de la pantalla (fila superior, laterales, fila inferior... usando top /
-    // left / right / bottom en fracciones), por lo que NUNCA comparten el eje de
-    // rotación global. Cada figura solo gira sobre su propio centro (equivalente
-    // en canvas a: position:absolute en la caja + transform-origin:center +
-    // rotate sobre el contenido interior). El centro queda libre para Acuario.
-    const BOX_ANCHORS = [
-        { x: 0.50, y: 0.14 }, // arriba centro
-        { x: 0.16, y: 0.24 }, // arriba izquierda
-        { x: 0.84, y: 0.24 }, // arriba derecha
-        { x: 0.07, y: 0.50 }, // izquierda
-        { x: 0.93, y: 0.50 }, // derecha
-        { x: 0.28, y: 0.56 }, // medio izquierda
-        { x: 0.72, y: 0.56 }, // medio derecha
-        { x: 0.16, y: 0.80 }, // abajo izquierda
-        { x: 0.84, y: 0.80 }, // abajo derecha
-        { x: 0.38, y: 0.90 }, // abajo centro izq
-        { x: 0.62, y: 0.90 }  // abajo centro der
-    ];
-    const ORBIT_RADIUS_FACTOR = 0.30; // 30% of the smaller canvas dimension for orbital radius
-
-    // Cache para las formas normalizadas de cada constelación (bloqueo de forma).
-    // Una vez calculada la forma, no se vuelve a recalcular: solo se rota y traslada.
+    // Cache para las formas bloqueadas de cada constelación.
+    // Una vez calculada su geometría normalizada (centrada en 0,0), se congela
+    // con Object.freeze para que la forma sea inmutable y nunca se altere.
     const shapeCache = new Map();
 
-    // Construye el layout orbital: las 11 constelaciones del zodíaco (menos Acuario)
-    // orbitan en un círculo amplio alrededor del centro de la pantalla.
-    // La forma de cada constelación se calcula UNA sola vez y se guarda en shapeCache.
-    // En cada frame solo se aplica la traslación orbital (sin rotación de la figura).
+    // Construye el layout orbital: las 11 constelaciones del zodíaco (sin Acuario)
+    // orbitan en un círculo amplio y uniforme alrededor del centro de la pantalla.
+    // Garantiza:
+    //   1) Bloqueo estricto de forma: la forma astronómica no se distorsiona jamás.
+    //   2) Órbita circular limpia: se trasladan por el círculo, no giran en su propio eje.
+    //   3) Espaciado generoso: el tamaño de cada constelación respeta el arco orbital,
+    //      impidiendo al 100% que se amontonen o se toquen entre sí.
+    //   4) Centro despejado: Acuario y el texto final quedan limpios y legibles en el centro.
     function buildBoxLayout(w, h) {
         const zodiac = sky.constellations.filter((c) => zodiaco.includes(c.id) && c.id !== MAIN_ID);
         const layout = new Map();
-        const count = zodiac.length || 1;
+        const count = zodiac.length || 11;
 
-        // Radio orbital: 38% de la dimensión menor → halo amplio y visible
-        const orbitRadius = Math.min(w, h) * 0.38;
+        const minDim = Math.min(w, h);
+
+        // Radio orbital circular: amplio (40% de la dimensión menor),
+        // dejando el centro libre para Acuario/texto y margen seguro hacia los bordes.
+        const orbitRadius = Math.max(130, Math.min(minDim * 0.40, (minDim / 2) - 45));
+
+        // Distancia de arco entre constelaciones consecutivas a lo largo de la órbita
+        const arcDistance = (2 * Math.PI * orbitRadius) / count;
+
+        // Tamaño máximo de radio para cada constelación:
+        // Se limita al 28% de la distancia entre centros, lo cual garantiza que
+        // haya como mínimo un 44% de espacio vacío entre constelación y constelación.
+        // Nunca se tocan ni se amontonan.
+        const targetRadius = Math.min(arcDistance * 0.28, minDim * 0.065);
 
         zodiac.forEach((constellation, index) => {
-            // --- Forma bloqueada: calcular una sola vez y cachear ---
+            // --- Bloqueo de forma: calcular una sola vez y congelar en shapeCache ---
             if (!shapeCache.has(constellation.id)) {
-                const projLines = (constellation.lines || [])
-                    .map((line) => projectLineCoords(line, w, h))
+                const projLines = projectConstellationLines(constellation.lines || [], w, h)
                     .filter((pts) => pts.length);
 
-                // Centroide de la figura completa
+                // Centroide geométrico de la constelación
                 let cx = 0;
                 let cy = 0;
                 let n = 0;
@@ -183,7 +197,7 @@
                 cx /= n;
                 cy /= n;
 
-                // Distancia máxima al centroide: tamaño real de la figura
+                // Distancia máxima al centroide (radio natural de la figura)
                 let maxDist = 0;
                 projLines.forEach((ln) => ln.forEach((p) => {
                     const d = Math.hypot(p.x - cx, p.y - cy);
@@ -191,20 +205,22 @@
                 }));
                 maxDist = Math.max(maxDist, 1);
 
-                // Escala: cada constelación ocupa como mucho ~10% de la dimensión menor
-                // para que quepan las 11 sin superponerse en el halo
-                const maxExt = Math.min(w, h) * 0.10;
-                const scale = Math.min(2.2, Math.max(0.4, maxExt / maxDist));
+                // Factor de escala exacto para el tamaño objetivo sin deformación
+                const scale = targetRadius / maxDist;
 
-                // Normalizar: restar centroide y aplicar escala → forma centrada en (0,0)
-                const normLines = projLines.map((ln) =>
-                    ln.map((p) => ({
+                // Forma normalizada centrada en (0, 0) y congelada (bloqueo inmutable)
+                const normLines = Object.freeze(projLines.map((ln) =>
+                    Object.freeze(ln.map((p) => Object.freeze({
                         x: (p.x - cx) * scale,
                         y: (p.y - cy) * scale
-                    }))
-                );
+                    })))
+                ));
 
-                shapeCache.set(constellation.id, { normLines, scale });
+                shapeCache.set(constellation.id, Object.freeze({
+                    normLines,
+                    scale,
+                    targetRadius
+                }));
             }
 
             const cached = shapeCache.get(constellation.id);
@@ -215,7 +231,8 @@
             const centerX = (w / 2) + orbitRadius * Math.cos(angle);
             const centerY = (h / 2) + orbitRadius * Math.sin(angle);
 
-            // Trasladar la forma bloqueada al punto orbital (sin rotar la figura)
+            // Trasladar la figura bloqueada al punto orbital sin girar sobre su propio eje,
+            // manteniendo su orientación astronómica natural legible y clara.
             const packedLines = cached.normLines.map((ln) =>
                 ln.map((p) => ({
                     x: centerX + p.x,
@@ -226,7 +243,9 @@
             layout.set(constellation.id, {
                 lines: packedLines,
                 angle: angle,
-                scale: cached.scale
+                scale: cached.scale,
+                centerX: centerX,
+                centerY: centerY
             });
         });
 
