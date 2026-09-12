@@ -268,6 +268,7 @@
     const finaleMessage = document.getElementById('finale-message');
     const finaleSign = document.querySelector('.finale-sign');
     const mysteryStar = document.getElementById('mystery-star');
+    const mysteryCaption = document.getElementById('mystery-caption');
 
     // --- RESPUESTA HÁPTICA PARA MÓVIL ---
     function triggerHaptic(type = 'light') {
@@ -978,8 +979,8 @@
     // 1) Acuario queda completa y respira durante un instante.
     // 2) El cielo se aleja y el zodíaco se revela; el texto flota sobre él.
     // 3) Acuario se ilumina por encima de las demás.
-    // 4) Nace una estrella misteriosa fuera de todo mapa.
-    // 5) La firma cierra la experiencia.
+    // 4) Aparece una estrella solitaria: no está en el mapa.
+    // 5) Esa estrella recibe un nombre — Charlotte — porque la puso Luis para ella.
     function showFinale() {
         finaleStarted = true;
         document.body.classList.add('constellation-complete');
@@ -996,14 +997,14 @@
             finaleOverlay.classList.add('show');
         }, 1600);
 
-        // Primer texto flotando sobre el cielo completo
+        // Todas las demás estrellas tienen nombre de la historia
         const texts = [
-            "Todas estas estrellas son parte del mismo cielo.",
-            "Pero había una que quería enseñarte primero.",
-            "Y quizá ahora entiendas por qué."
+            "Todas las estrellas de este cielo tienen un nombre.",
+            "La mayoría se los puso la historia.",
+            "Pero hay una que no es como las demás."
         ];
-        const textsStart = 4200;
-        const textGap = 3400;
+        const textsStart = 3800;
+        const textGap = 3000;
         texts.forEach((text, i) => {
             addFinaleParagraph(text, textsStart + i * textGap);
         });
@@ -1012,7 +1013,7 @@
         const radiantTime = textsStart + texts.length * textGap + 400;
         setTimeout(() => universeContainer.classList.add('radiant'), radiantTime);
 
-        // Aparece la estrella misteriosa, separada de todo
+        // Aparece la estrella misteriosa, separada de todo, con la pregunta bajo ella
         const mysteryTime = radiantTime + 2800;
         setTimeout(() => {
             mysteryStar.classList.add('visible');
@@ -1020,15 +1021,24 @@
             playMysteryNote();
         }, mysteryTime);
 
-        // "Esta no estaba en el mapa... Esta la puse yo."
-        addFinaleParagraph("Esta no estaba en el mapa.", mysteryTime + 1700);
-        addFinaleParagraph("Esta la puse yo.", mysteryTime + 5000);
+        // "Es la única que no está en ningún mapa."
+        addFinaleParagraph("Es la única que no está en ningún mapa.", mysteryTime + 2400);
+
+        // La estrella recibe su nombre: Charlotte
+        const nameTime = mysteryTime + 5800;
+        setTimeout(() => {
+            mysteryCaption.textContent = 'Charlotte';
+            mysteryCaption.classList.add('named');
+            triggerHaptic('light');
+        }, nameTime);
+
+        // "La puse yo, y la puse para ti."
+        addFinaleParagraph("La puse yo, y la puse para ti.", nameTime + 400);
 
         // La firma cierra la experiencia
-        const signTime = mysteryTime + 7200;
         setTimeout(() => {
             finaleSign.classList.add('show-sign');
-        }, signTime);
+        }, nameTime + 5600);
     }
 
 

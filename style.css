@@ -267,23 +267,60 @@ html, body {
     }
 }
 
-/* Estrella misteriosa del final: vive aparte de Acuario y del resto del zodíaco */
+/* Estrella misteriosa del final: vive aparte de Acuario y del resto del zodíaco.
+   Lleva un nombre debajo que se revela al final para que se entienda su significado */
 #mystery-star {
     position: fixed;
     left: 33%;
     top: 16%;
     width: 14px;
     height: 14px;
-    border-radius: 50%;
     z-index: 8;
-    background: radial-gradient(circle, #ffffff 0%, #ffe3f5 45%, rgba(244, 114, 182, 0) 78%);
-    box-shadow: 0 0 16px rgba(255, 205, 235, 0.95),
-                0 0 44px rgba(244, 114, 182, 0.6),
-                0 0 90px rgba(244, 114, 182, 0.3);
     opacity: 0;
     transform: scale(0.2);
     pointer-events: none;
     transition: opacity 2.2s ease, transform 2.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.mystery-dot {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: radial-gradient(circle, #ffffff 0%, #ffe3f5 45%, rgba(244, 114, 182, 0) 78%);
+    box-shadow: 0 0 16px rgba(255, 205, 235, 0.95),
+                0 0 44px rgba(244, 114, 182, 0.6),
+                0 0 90px rgba(244, 114, 182, 0.3);
+}
+
+/* Texto bajo la estrella: primero una pregunta, luego el nombre revelado */
+.mystery-caption {
+    position: absolute;
+    top: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 1rem;
+    letter-spacing: 0.18em;
+    color: rgba(255, 205, 235, 0.9);
+    text-shadow: 0 0 14px rgba(244, 114, 182, 0.55);
+    opacity: 0;
+    transition: opacity 1.6s ease, color 1.6s ease, font-size 1.6s ease, letter-spacing 1.6s ease;
+}
+
+/* Cuando la estrella recibe su nombre, brilla como las del mapa */
+.mystery-caption.named {
+    color: #ffffff;
+    font-size: 1.3rem;
+    letter-spacing: 0.3em;
+    text-shadow: 0 0 16px rgba(255, 255, 255, 0.8),
+                 0 0 34px rgba(244, 114, 182, 0.75),
+                 0 0 70px rgba(244, 114, 182, 0.35);
+}
+
+#mystery-star.visible .mystery-caption {
+    opacity: 1;
 }
 
 #mystery-star::before {
