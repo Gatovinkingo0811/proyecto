@@ -689,13 +689,6 @@
 
             starsContainer.appendChild(node);
         });
-
-        if (!document.querySelector('.constellation-name')) {
-            const mark = document.createElement('div');
-            mark.className = 'constellation-name';
-            mark.textContent = 'Aquarius · El Aguador';
-            document.body.appendChild(mark);
-        }
     }
 
     function updateLines() {
@@ -722,7 +715,7 @@
         if (!isDiscovered && !isActive) {
             triggerHaptic('light');
             playLockedTone();
-            hintElement.textContent = "sigue el camino... toca la estrella que brilla";
+            hintElement.textContent = "sigue el camino...";
             setTimeout(() => {
                 hintElement.textContent = defaultHint();
             }, 2500);
@@ -756,7 +749,7 @@
     }
 
     function defaultHint() {
-        return "toca la estrella que brilla";
+        return "";
     }
 
     function openModal(star) {

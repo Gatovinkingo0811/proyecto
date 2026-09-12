@@ -13,11 +13,12 @@
  * - Zodíaco: solo se dibujan las constelaciones de `zodiaco` (12 en total:
  *   11 son las que orbitan en el halo + Acuario, la principal, SIEMPRE fija en
  *   el centro → sin duplicados).
- * - Halo circular: cada figura se normaliza a su centroide y se traslada a un
- *   ángulo del anillo (reloj) alrededor del centro con zoom adaptativo (tope
- *   de ~50% del paso del anillo para que no se crucen al rotar).
- * - Estrella de Charlotte: anomalía que sigue a Géminis en su órbita; no es un
- *   punto fijo. Solo aparece cuando el final invoca `.showCharlotte()`.
+ * - Cajas del giro: cada constelación vive en SU PROPIA zona fija de la pantalla
+ *   (top/left/right/bottom en fracciones) y solo rota sobre su propio centro
+ *   (transform-origin: center; rotate), sin compartir eje de rotación: no se
+ *   chocan ni se amontonan. Acuario (la principal) queda fija en el centro.
+ * - Estrella de Charlotte: anomalía que sigue a Géminis dentro de su caja; no
+ *   es un punto fijo. Solo aparece cuando el final invoca `.showCharlotte()`.
  * - Órbita: `globalAngle` (declarada fuera de la animación, nunca se reinicia)
  *   sube 0.001 por frame y se suma al ángulo de cada constelación; el bucle
  *   `animate()` corre con requestAnimationFrame de forma continua y termina
@@ -125,29 +126,38 @@
     /* Render                                                              */
     /* ------------------------------------------------------------------ */
 
-    // Constelación principal (Acuario): SIEMPRE FIJA en el centro, fuera del
-    // anillo. El halo gira con las otras 11 constelaciones del zodíaco, de modo
-    // que en total siempre hay 12 (11 en órbita + la central), sin duplicados.
+    // Constelación principal (Acuario): SIEMPRE FIJA en el centro (fuera de las
+    // cajas). El resto del zodíaco se reparte en cajas propias por la pantalla.
     const MAIN_ID = 'Aqr';
 
-    // Empaqueta las 11 constelaciones del zodíaco (todas menos la principal) en
-    // un anillo perfecto (halo) alrededor del centro, simulando un reloj. Cada
-    // figura:
-    //   1) Se proyecta a píxeles (RA/Dec reales, con desenvuelto de ángulo).
-    //   2) Se normaliza restando su propio centroide (lleva la forma a 0,0).
-    //   3) Se escala (zoom) con un tope adaptativo para que ninguna figura
-    //      sobrepase ~la mitad del espacio del anillo: "no se cruzan" al girar.
-    //   4) Se traslada a su punto ancla en el arco del halo.
-    function buildHaloLayout(w, h) {
-        const zodiac = sky.constellations.filter((c) => zodiaco.includes(c.id) && c.id !== MAIN_ID);
-        const count = zodiac.length;
-        const centerX = w / 2;
-        const centerY = h / 2;
-        const radius = Math.min(w, h) * 0.4;
-        const maxScale = 2.2;
-        // Espacio angular (px) que separa dos constelaciones vecinas del anillo.
-        const arcStep = (2 * Math.PI * radius) / (count || 12);
+    // "Cajas" (wrappers) del giro: cada constelación tiene SU PROPIA zona fija
+    // de la pantalla (fila superior, laterales, fila inferior... usando top /
+    // left / right / bottom en fracciones), por lo que NUNCA comparten el eje de
+    // rotación global. Cada figura solo gira sobre su propio centro (equivalente
+    // en canvas a: position:absolute en la caja + transform-origin:center +
+    // rotate sobre el contenido interior). El centro queda libre para Acuario.
+    const BOX_ANCHORS = [
+        { x: 0.50, y: 0.14 }, // arriba centro
+        { x: 0.16, y: 0.24 }, // arriba izquierda
+        { x: 0.84, y: 0.24 }, // arriba derecha
+        { x: 0.07, y: 0.50 }, // izquierda
+        { x: 0.93, y: 0.50 }, // derecha
+        { x: 0.28, y: 0.56 }, // medio izquierda
+        { x: 0.72, y: 0.56 }, // medio derecha
+        { x: 0.16, y: 0.80 }, // abajo izquierda
+        { x: 0.84, y: 0.80 }, // abajo derecha
+        { x: 0.38, y: 0.90 }, // abajo centro izq
+        { x: 0.62, y: 0.90 }  // abajo centro der
+    ];
 
+    // Coloca cada constelación en su caja (zona fija) y la hace girar sobre su
+    // PROPIO centroide (transform-origin center center), sin órbita compartida:
+    //   1) Se proyecta a píxeles (RA/Dec reales, con desenvuelto de ángulo).
+    //   2) Se normaliza restando su propio centroide (forma apuntando a 0,0).
+    //   3) Se escala para que quepa dentro de su caja (nunca invade la vecina).
+    //   4) Se rota alrededor de su centroide y se traslada al ancla de su caja.
+    function buildBoxLayout(w, h) {
+        const zodiac = sky.constellations.filter((c) => zodiaco.includes(c.id) && c.id !== MAIN_ID);
         const layout = new Map();
 
         zodiac.forEach((constellation, index) => {
@@ -170,31 +180,38 @@
             }));
             maxDist = Math.max(maxDist, 1);
 
-            // Ángulo del reloj + rotación global (órbita continua).
-            // Usa (count) repartos, no 12, porque son 11 las que orbitan.
-            const angle = ((index / count) * Math.PI * 2) + globalAngle;
-            const targetX = centerX + Math.cos(angle) * radius;
-            const targetY = centerY + Math.sin(angle) * radius;
+            // Su caja (zona fija de la pantalla) + ancla dentro de ella.
+            const box = BOX_ANCHORS[index % BOX_ANCHORS.length];
+            const anchorX = box.x * w;
+            const anchorY = box.y * h;
 
-            // Escala con tope anti-cruce: la figura ocupa como mucho el 50% del
-            // paso del anillo, y nunca pasa de maxScale (zoom legible real).
-            const fitScale = (arcStep * 0.5) / (maxDist * 2);
-            const scale = Math.min(maxScale, Math.max(0.5, fitScale));
+            // Escala para caber en la caja: la figura entera ocupa como mucho
+            // ~22% de la dimensión menor de la pantalla → no se tocan entre cajas.
+            const maxExt = Math.min(w, h) * 0.22;
+            const scale = Math.min(2.6, Math.max(0.5, maxExt / (maxDist * 2)));
 
-            // Normalización (agrupación en 0,0), zoom y traslación: las
-            // coordenadas relativas se multiplican justo antes de llevarlas a
-            // su punto en el halo.
+            // Rotación SOLO sobre su propio eje (transform-origin center center):
+            // cada constelación gira en su caja sin salirse de su zona. No hay
+            // ángulo global compartido, por eso no se amontonan.
+            const angle = globalAngle + index * 0.05;
+            const cos = Math.cos(angle);
+            const sin = Math.sin(angle);
+
             const packedLines = projLines.map((ln) =>
-                ln.map((p) => ({
-                    x: targetX + (p.x - (cx / n)) * scale,
-                    y: targetY + (p.y - (cy / n)) * scale
-                }))
+                ln.map((p) => {
+                    const localX = (p.x - (cx / n)) * scale;
+                    const localY = (p.y - (cy / n)) * scale;
+                    return {
+                        x: anchorX + (localX * cos - localY * sin),
+                        y: anchorY + (localX * sin + localY * cos)
+                    };
+                })
             );
 
             layout.set(constellation.id, {
                 lines: packedLines,
-                targetX: targetX,
-                targetY: targetY,
+                anchorX: anchorX,
+                anchorY: anchorY,
                 angle: angle,
                 scale: scale
             });
@@ -409,8 +426,9 @@ function drawPackedConstellation(layout, ctx, highlight) {
     //      el contexto se escala para dibujar en píxeles CSS → trazos vectoriales
     //      nítidos sin importar el zoom.
     //   2) clearRect al inicio (borra el frame anterior, sin estelas).
-    //   3) globalAngle += 0.001 (rotación orbital lenta y celestial).
-    //   4) Cálculo del ángulo por constelación: (index/12)·2π + globalAngle.
+    //   3) globalAngle += 0.003 (giro de cada constelación sobre su propio eje).
+    //   4) Cada constelación gira en su propia caja/zona fija (self-rotation
+    //      con transform-origin center), NUNCA en órbita compartida.
     //   5) Termina obligatoriamente con requestAnimationFrame(animate).
     function animate() {
         const ctx = sky.ctx;
@@ -425,14 +443,15 @@ function drawPackedConstellation(layout, ctx, highlight) {
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Rotación global continua del halo.
-            globalAngle += 0.001;
+            // Rotación global (velocidad del giro de cada constelación).
+            globalAngle += 0.003;
 
-            // Halo: las 12 constelaciones del zodíaco girando alrededor del centro.
-            const halo = buildHaloLayout(w, h);
+            // Cajas: cada constelación del zodíaco (menos Acuario, fija en el
+            // centro) en su propia zona de pantalla, girando sobre su eje.
+            const boxes = buildBoxLayout(w, h);
 
-            halo.forEach((layout, id) => {
-                drawPackedConstellation(layout, ctx, id === sky.highlightedId);
+            boxes.forEach((box, id) => {
+                drawPackedConstellation(box, ctx, id === sky.highlightedId);
             });
 
             // Conexiones.
@@ -440,16 +459,15 @@ function drawPackedConstellation(layout, ctx, highlight) {
             sky.links.forEach((link) => drawLink(link, ctx, w, h, now));
 
             // Constelaciones personalizadas (encima de todo). Usan coordenadas
-            // relativas 0..1, así que permanecen FIJAS, independientes del giro:
-            // el texto central y la constelación principal no rotan con el halo.
+            // relativas 0..1, así que permanecen FIJAS.
             sky.customs.forEach((custom) => drawCustom(custom, ctx, w, h, now));
 
-            // La anomalía de Charlotte se dibuja una sola vez, al final del ciclo,
-            // sujeta a la misma normalización y traslación del halo (persistencia).
-            drawCharlotteAnomaly(halo.get('Gem'), ctx, w, h);
+            // La anomalía de Charlotte sigue a Géminis dentro de su caja: gira
+            // con ella y nunca queda suelta en la pantalla.
+            drawCharlotteAnomaly(boxes.get('Gem'), ctx, w, h);
         }
 
-        // El bucle nunca se detiene: la órbita es continua.
+        // El bucle nunca se detiene: el giro es continuo.
         requestAnimationFrame(animate);
     }
 

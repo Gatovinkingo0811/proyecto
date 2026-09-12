@@ -107,42 +107,7 @@ body.constellation-complete #celestial-map {
     transform: scale(0.3);
 }
 
-/* Halo that marks Aquarius: hers (lives inside the zoomed container,
-   so it is sized large and ends up ~45vmin once the sky scales to 0.35) */
-#aquarius-halo {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    width: 130vmin;
-    height: 130vmin;
-    transform: translate(-50%, -50%);
-    border-radius: 50%;
-    background: radial-gradient(circle,
-        rgba(196, 181, 253, 0.3) 0%,
-        rgba(167, 139, 250, 0.15) 30%,
-        rgba(139, 92, 246, 0.05) 55%,
-        transparent 75%);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 2.8s ease;
-}
-
-/* When the full zodiac is revealed, Aquarius radiates above the rest */
-#universe-container.radiant #aquarius-halo {
-    opacity: 1;
-    animation: haloBreathe 5s ease-in-out infinite;
-}
-
-@keyframes haloBreathe {
-    0%, 100% {
-        transform: translate(-50%, -50%) scale(1);
-        opacity: 0.5;
-    }
-    50% {
-        transform: translate(-50%, -50%) scale(1.08);
-        opacity: 0.62;
-    }
-}
+/* Sin halo/globo central estático: Acuario (fija) habla por sí sola */
 
 #universe-container.radiant .const-line {
     stroke: rgba(224, 212, 255, 0.5);
@@ -177,8 +142,8 @@ body.constellation-complete #celestial-map {
     }
 }
 
-/* Estrella de Charlotte (anomalía): va dibujada en el canvas celestial.js,
-   sujeta a la órbita de Géminis en el halo, por lo que aquí no hay HTML. */
+/* Estrella de Charlotte (anomalía): va dibujada en el canvas de celestial.js,
+   sujeta a la caja/giro de Géminis, por lo que aquí no hay HTML. */
 
 /* Constellation SVG Lines */
 #constellation-lines {
@@ -429,21 +394,6 @@ body.constellation-complete #celestial-map {
 
 
 
-
-/* Constellation watermark */
-.constellation-name {
-    position: fixed;
-    bottom: max(14px, env(safe-area-inset-bottom));
-    left: max(16px, env(safe-area-inset-left));
-    z-index: 10;
-    font-family: var(--font-serif);
-    font-size: 1rem;
-    font-style: italic;
-    letter-spacing: 0.14em;
-    color: rgba(224, 212, 255, 0.45);
-    pointer-events: none;
-    text-shadow: 0 0 12px rgba(167, 139, 250, 0.3);
-}
 
 /* Hint Text */
 #hint {
@@ -856,10 +806,6 @@ body.constellation-complete .star-node .star-point {
 
 /* Specific Mobile Screen Optimizations */
 @media (max-width: 640px) {
-    .constellation-name {
-        font-size: 0.88rem;
-    }
-
     #hint {
         font-size: 0.95rem;
     }
