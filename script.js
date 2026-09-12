@@ -159,116 +159,190 @@
 
     // Las otras 11 constelaciones del zodíaco, dispuestas en anillo alrededor de
     // Acuario (que ocupa el centro) para que ninguna pase por encima de la principal.
-    // Formas tomadas de un grafo 2D por constelación: cada nodo (A, B, C...) es una
-    // estrella y cada conexión es una línea real. Aquí cada forma se coloca con un
-    // ancla (posición del origen 0,0 en % del viewport) y una escala (% por unidad),
-    // con el eje Y positivo hacia abajo para que no se invierta la figura.
+    // Cada figura está definida en un plano 0-100 (x hacia la derecha, y hacia
+    // arriba, origen en la esquina inferior-izquierda), como se ven en las cartas
+    // del cielo. Cada forma se coloca en pantalla con:
+    //   anchor : esquina de su caja en % del viewport (izquierda y Y=100 del plano)
+    //   scale  : % del viewport que representa cada unidad del plano
+    // El eje Y se invierte al pasar a pantalla para que la figura no quede girada
+    // (se convierte con placeZodiac). linkNode opcional indica qué estrella de la
+    // constelación recibe la estrella de ella en el final.
     const ZODIAC_CONSTELLATIONS = [
-        // Aries (Carnero) — ancla [42,5], escala 2
+        // Aries (Carnero) — línea quebrada con gancho
         {
             id: 'aries',
             name: 'Aries',
-            stars: [[42, 5], [48, 9], [56, 11], [58, 7]],
-            lines: [[0, 1], [1, 2], [2, 3]]
+            anchor: [42, 5],
+            scale: 0.15,
+            linkNode: 0,
+            plane: {
+                stars: [[58, 45], [40, 50], [25, 65], [55, 25]],
+                lines: [[0, 1], [1, 2], [0, 3]]
+            }
         },
-        // Taurus — ancla [72,12], escala 2
+        // Taurus — la V de la cara con Aldebarán (α) debajo, los cuernos hacia
+        // arriba (ζ y β Elnath) y el racimo de las Pléyades a un lado
         {
             id: 'taurus',
             name: 'Taurus',
-            stars: [[72, 22], [76, 18], [82, 22], [78, 14], [86, 8], [76, 12]],
-            lines: [[0, 1], [2, 1], [1, 3], [3, 4], [3, 5]]
+            anchor: [70, 6],
+            scale: 0.20,
+            linkNode: 0,
+            plane: {
+                stars: [[22, 42], [52, 50], [80, 40], [45, 18], [12, 78], [82, 85], [90, 72], [100, 66], [95, 56], [86, 60]],
+                lines: [[0, 1], [1, 2], [3, 0], [3, 1], [3, 2], [0, 4], [2, 5], [5, 6], [6, 7], [7, 8], [8, 9], [9, 5]]
+            }
         },
-        // Gemini — ancla [78.5,26.5], escala 0.15 (los gemelos con brazos y manos)
+        // Gemini — los gemelos con la cabeza arriba, cuello, pecho, cadera, pies
+        // y los brazos con sus manos, tal como los dibuja una carta del cielo
         {
             id: 'gemini',
             name: 'Gemini',
-            stars: [
-                [83.0, 38.5],   // Cabeza_Castor
-                [86.75, 40.0],  // Cabeza_Polux
-                [80.0, 34.0],   // Brazo_Castor
-                [83.75, 35.5],  // Pecho_Castor
-                [86.0, 36.25],  // Pecho_Polux
-                [85.25, 31.0],  // Cadera_Castor
-                [84.5, 28.0],   // Pie_Ext_Castor
-                [87.5, 28.75],  // Pie_Int_Castor
-                [89.75, 34.0],  // Codo_Polux
-                [92.0, 33.25],  // Mano_Alta_Polux
-                [90.5, 31.75],  // Mano_Baja_Polux
-                [88.25, 31.75], // Cadera_Polux
-                [89.75, 28.0]   // Pie_Polux
-            ],
-            lines: [
-                [0, 3],  // Cabeza_Castor – Pecho_Castor
-                [2, 3],  // Brazo_Castor – Pecho_Castor
-                [1, 4],  // Cabeza_Polux – Pecho_Polux
-                [3, 4],  // Pecho_Castor – Pecho_Polux
-                [3, 5],  // Pecho_Castor – Cadera_Castor
-                [5, 6],  // Cadera_Castor – Pie_Ext_Castor
-                [5, 7],  // Cadera_Castor – Pie_Int_Castor
-                [4, 11], // Pecho_Polux – Cadera_Polux
-                [11, 12],// Cadera_Polux – Pie_Polux
-                [4, 8],  // Pecho_Polux – Codo_Polux
-                [8, 9],  // Codo_Polux – Mano_Alta_Polux
-                [8, 10]  // Codo_Polux – Mano_Baja_Polux
-            ]
+            anchor: [79, 26],
+            scale: 0.18,
+            linkNode: 1,
+            plane: {
+                stars: [
+                    [30, 80],   // Cabeza_Castor
+                    [55, 90],   // Cabeza_Polux
+                    [10, 50],   // Brazo_Castor
+                    [35, 60],   // Pecho_Castor
+                    [50, 65],   // Pecho_Polux
+                    [45, 30],   // Cadera_Castor
+                    [40, 10],   // Pie_Ext_Castor
+                    [60, 15],   // Pie_Int_Castor
+                    [75, 50],   // Codo_Polux
+                    [90, 45],   // Mano_Alta_Polux
+                    [80, 35],   // Mano_Baja_Polux
+                    [65, 35],   // Cadera_Polux
+                    [75, 10]    // Pie_Polux
+                ],
+                lines: [
+                    [0, 3],   // Cabeza_Castor – Pecho_Castor
+                    [2, 3],   // Brazo_Castor – Pecho_Castor
+                    [1, 4],   // Cabeza_Polux – Pecho_Polux
+                    [3, 4],   // Pecho_Castor – Pecho_Polux
+                    [3, 5],   // Pecho_Castor – Cadera_Castor
+                    [5, 6],   // Cadera_Castor – Pie_Ext_Castor
+                    [5, 7],   // Cadera_Castor – Pie_Int_Castor
+                    [4, 11],  // Pecho_Polux – Cadera_Polux
+                    [11, 12], // Cadera_Polux – Pie_Polux
+                    [4, 8],   // Pecho_Polux – Codo_Polux
+                    [8, 9],   // Codo_Polux – Mano_Alta_Polux
+                    [8, 10]   // Codo_Polux – Mano_Baja_Polux
+                ]
+            }
         },
-        // Cancer — ancla [88,62], escala 2.5
+        // Cancer — pequeña Y del cangrejo, acostada sobre el lado derecho
         {
             id: 'cancer',
             name: 'Cancer',
-            stars: [[88, 72], [88, 67], [93, 62], [95.5, 57], [83, 62]],
-            lines: [[0, 1], [1, 2], [2, 3], [1, 4]]
+            anchor: [82, 48],
+            scale: 0.15,
+            linkNode: 0,
+            plane: {
+                stars: [[42, 85], [38, 62], [58, 45], [28, 45], [30, 22]],
+                lines: [[0, 1], [1, 2], [1, 3], [3, 4]]
+            }
         },
-        // Leo (León) — ancla [74,80], escala 1.6
+        // Leo — la hoz (Régulo abajo) y el cuerpo triangular hasta Denébola
         {
             id: 'leo',
             name: 'Leo',
-            stars: [[74, 83.2], [75.6, 86.4], [78.8, 86.4], [80.4, 83.2], [78.8, 80], [85.2, 80], [88.4, 83.2], [88.4, 78.4]],
-            lines: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [5, 7]]
+            anchor: [74, 70],
+            scale: 0.16,
+            linkNode: 0,
+            plane: {
+                stars: [[30, 18], [40, 40], [52, 58], [48, 78], [60, 85], [66, 68], [60, 46], [75, 52], [86, 60], [96, 52]],
+                lines: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 8], [8, 9], [5, 7]]
+            }
         },
-        // Virgo (Virgen) — ancla [60,85], escala 1.8
+        // Virgo — la Y de Espiga (abajo), Porrima (arriba-izquierda) y Vindemiatrix
         {
             id: 'virgo',
             name: 'Virgo',
-            stars: [[60, 94], [63.6, 90.4], [61.8, 85], [65.4, 86.8], [69, 90.4], [70.8, 85], [74.4, 92.2]],
-            lines: [[0, 1], [1, 2], [1, 3], [3, 4], [4, 5], [4, 6]]
+            anchor: [58, 78],
+            scale: 0.16,
+            linkNode: 0,
+            plane: {
+                stars: [[35, 10], [42, 42], [75, 40], [25, 35]],
+                lines: [[0, 1], [1, 2], [1, 3]]
+            }
         },
-        // Libra (Balanza) — ancla [44,90], escala 1.8
+        // Libra — el rombo de la balanza con sus platillos
         {
             id: 'libra',
             name: 'Libra',
-            stars: [[47.6, 97.2], [44, 93.6], [47.6, 90], [51.2, 93.6], [40.4, 93.6], [54.8, 93.6]],
-            lines: [[0, 1], [1, 2], [2, 3], [3, 0], [1, 4], [3, 5]]
+            anchor: [40, 82],
+            scale: 0.14,
+            linkNode: 0,
+            plane: {
+                stars: [[30, 60], [65, 65], [42, 28], [72, 32]],
+                lines: [[0, 1], [1, 3], [3, 2], [2, 0]]
+            }
         },
-        // Scorpius (Escorpión) — ancla [6,88], escala 2
+        // Scorpius — cabeza y corazón (Antares) con la gran cola en J hasta el aguijón
         {
             id: 'scorpius',
             name: 'Scorpius',
-            stars: [[6, 96], [10, 94], [14, 96], [10, 90], [10, 84], [14, 80], [18, 84], [16, 88]],
-            lines: [[0, 1], [2, 1], [1, 3], [3, 4], [4, 5], [5, 6], [6, 7]]
+            anchor: [6, 76],
+            scale: 0.16,
+            linkNode: 0,
+            plane: {
+                stars: [[72, 72], [82, 82], [68, 78], [55, 50], [48, 58], [42, 70], [30, 78], [22, 70], [10, 62], [6, 72]],
+                lines: [[3, 0], [0, 1], [3, 2], [3, 4], [4, 5], [5, 6], [6, 7], [7, 8], [8, 9], [6, 8]]
+            }
         },
-        // Sagittarius (Sagitario) — ancla [7,60], escala 1.8
+        // Sagittarius — la tetera: tapa, asa y pico
         {
             id: 'sagittarius',
             name: 'Sagittarius',
-            stars: [[7, 63.6], [10.6, 67.2], [14.2, 67.2], [16, 63.6], [12.4, 60], [8.8, 60], [19.6, 65.4], [3.4, 61.8]],
-            lines: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 0], [2, 6], [0, 7]]
+            anchor: [5, 56],
+            scale: 0.17,
+            linkNode: 0,
+            plane: {
+                stars: [[25, 60], [45, 62], [70, 55], [75, 30], [45, 15], [20, 18], [5, 35], [5, 55]],
+                lines: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 0]]
+            }
         },
-        // Capricornus (Capricornio) — ancla [6,36], escala 1.8
+        // Capricornus — el triángulo de la cabra-marino
         {
             id: 'capricornus',
             name: 'Capricornus',
-            stars: [[6, 43.2], [9.6, 36], [16.8, 36], [20.4, 41.4], [13.2, 39.6]],
-            lines: [[0, 1], [1, 2], [2, 3], [0, 4], [4, 3]]
+            anchor: [5, 34],
+            scale: 0.17,
+            linkNode: 0,
+            plane: {
+                stars: [[65, 70], [30, 45], [45, 20], [15, 30], [75, 35]],
+                lines: [[0, 1], [1, 2], [2, 3], [1, 4]]
+            }
         },
-        // Pisces (Piscis) — ancla [10,22], escala 1.8
+        // Pisces — el círculo de un pez unido por la cuerda al otro
         {
             id: 'pisces',
             name: 'Pisces',
-            stars: [[10, 27.4], [6.4, 23.8], [10, 20.2], [17.2, 22], [20.8, 16.6], [24.4, 16.6], [22.6, 13]],
-            lines: [[0, 1], [1, 2], [2, 0], [2, 3], [3, 4], [4, 5], [5, 6], [6, 4]]
+            anchor: [7, 12],
+            scale: 0.16,
+            linkNode: 0,
+            plane: {
+                stars: [[40, 70], [62, 75], [75, 60], [70, 40], [50, 42], [30, 35], [20, 50]],
+                lines: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 0], [4, 5], [5, 6]]
+            }
         }
     ];
+
+    // Convierte el plano 0-100 (y hacia arriba) de cada constelación en
+    // porcentajes reales de pantalla, invirtiendo el eje Y para que la figura
+    // conserve su orientación tal como se ve en el cielo.
+    ZODIAC_CONSTELLATIONS.forEach(cz => {
+        const [ax, ay] = cz.anchor;
+        const s = cz.scale;
+        cz.stars = cz.plane.stars.map(([px, py]) => [
+            +(ax + s * px).toFixed(2),
+            +(ay + s * (100 - py)).toFixed(2)
+        ]);
+        cz.lines = cz.plane.lines;
+    });
 
     // Los textos del final se escenifican en showFinale() por fases,
     // intercalados con el zoom out, la estrella misteriosa y la firma.
@@ -1006,9 +1080,10 @@
         }, delay);
     }
 
-    // Conecta la estrella de ella (elemento HTML fijo) con su constelación del
-    // zodíaco (SVG): una línea luminosa que crece entre ambos en el momento en
-    // que la estrella aparece en el cielo.
+    // Conecta la estrella de ella (elemento HTML fijo) con la constelación de
+    // Luis (SVG): una línea luminosa que nace en un nodo extremo de la figura
+    // (linkNode, la punta de Géminis) y llega a la estrella, para que el trazo
+    // quede de una sola pieza y no cruce el dibujo de la constelación.
     function connectMysteryStar() {
         const geminiGroup = document.getElementById('zodiac-gemini');
         if (!geminiGroup) return;
@@ -1016,18 +1091,15 @@
         if (!cz) return;
         const w = window.innerWidth;
         const h = window.innerHeight;
-        const center = cz.stars.reduce((acc, [px, py]) => {
-            acc.x += px;
-            acc.y += py;
-            return acc;
-        }, { x: 0, y: 0 });
-        center.x = (center.x / cz.stars.length / 100) * w;
-        center.y = (center.y / cz.stars.length / 100) * h;
+        const link = cz.linkNode != null ? cz.stars[cz.linkNode] : cz.stars[0];
+        if (!link) return;
+        const tx = (link[0] / 100) * w;
+        const ty = (link[1] / 100) * h;
 
         const rect = mysteryStar.getBoundingClientRect();
         const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        line.setAttribute('x1', center.x);
-        line.setAttribute('y1', center.y);
+        line.setAttribute('x1', tx);
+        line.setAttribute('y1', ty);
         line.setAttribute('x2', rect.left + rect.width / 2);
         line.setAttribute('y2', rect.top + rect.height / 2);
         line.setAttribute('class', 'mystery-connect');

@@ -301,11 +301,12 @@ html, body {
 }
 
 /* Estrella misteriosa del final: aparece junto a Géminis, el signo de Luis,
-   como su estrella nueva. Lleva un nombre debajo que se revela al final. */
+   y una línea la une al nodo superior de la constelación. Lleva un nombre
+   debajo que se revela al final. */
 #mystery-star {
     position: fixed;
-    left: 84%;
-    top: 30%;
+    left: 78%;
+    top: 26%;
     width: 14px;
     height: 14px;
     z-index: 8;
@@ -1085,8 +1086,8 @@ body.constellation-complete .star-node .star-point {
     }
 
     #mystery-star {
-        left: 78%;
-        top: 30%;
+        left: 70%;
+        top: 27%;
     }
 
     .mystery-caption.named {
