@@ -10,6 +10,9 @@
  *   x = RA/360·ancho, y = (90−Dec)/180·alto (ventana completa).
  * - Estilo: líneas semitransparentes rgba(255,255,255,0.3) y trazo fino;
  *   nodos principales con un sutil resplandor (shadowBlur).
+ * - Zodíaco: solo se dibujan las 12 constelaciones de `zodiaco`.
+ * - Anomalía: la estrella de Charlotte se inyecta junto a un extremo de
+ *   Géminis con una conexión delgada y un estilo rosado único.
  * - API pública: window.CelestialSky
  *   .init(canvas)            prepara el mapa (fetch + render).
  *   .drawCustomConstellation(name, nodes, edges)  dibuja una constelación
@@ -41,6 +44,9 @@
     // Puntos que definen la CONSTELACIÓN REAL y su estética (igual proyección
     // que el resto del cielo: RA en grados, Dec en grados).
     const HIGHLIGHT_COLOR = 'rgba(255, 171, 216, 0.9)';
+
+    // Filtro del zodíaco: solo estas 12 constelaciones se dibujan en el mapa.
+    const zodiaco = ['Ari', 'Tau', 'Gem', 'Cnc', 'Leo', 'Vir', 'Lib', 'Sco', 'Sgr', 'Cap', 'Aqr', 'Psc'];
 
     const sky = {
         canvas: null,
@@ -234,16 +240,90 @@
         ctx.restore();
     }
 
+    // La anomalía de Charlotte: una estrella que no pertenece a ningún mapa real.
+    // Nace en un extremo de Géminis (el pie de la figura) con una línea delgada
+    // hacia afuera y se dibuja con un estilo único (tono rosado, más grande y
+    // con resplandor intenso) junto a su etiqueta.
+    function drawCharlotteAnomaly(ctx, w, h) {
+        const gem = sky.constellations.find((c) => c.id === 'Gem');
+        if (!gem || !gem.lines || !gem.lines.length) return;
+
+        const line = gem.lines[0];
+        if (!line || line.length < 2) return;
+
+        const tip = line[line.length - 1];
+        const prev = line[line.length - 2];
+
+        // Desenvuelve el ángulo como en la proyección del cielo.
+        let tipRA = normalize(tip[0]);
+        let prevRA = normalize(prev[0]);
+        while (tipRA - prevRA > 180) tipRA -= 360;
+        while (tipRA - prevRA < -180) tipRA += 360;
+
+        const tipX = (tipRA / 360) * w;
+        const tipY = ((90 - tip[1]) / 180) * h;
+        const prevX = (prevRA / 360) * w;
+        const prevY = ((90 - prev[1]) / 180) * h;
+
+        // Dirección hacia afuera del extremo del pie de Géminis.
+        const dx = tipX - prevX;
+        const dy = tipY - prevY;
+        const len = Math.hypot(dx, dy) || 1;
+        const ext = Math.max(18, Math.min(w, h) * 0.06);
+        const cx = tipX + (dx / len) * ext;
+        const cy = tipY + (dy / len) * ext;
+
+        // Línea delgada y sutil que conecta el extremo con la estrella.
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(tipX, tipY);
+        ctx.lineTo(cx, cy);
+        ctx.strokeStyle = 'rgba(255, 182, 193, 0.32)';
+        ctx.lineWidth = 1;
+        ctx.shadowColor = 'rgba(255, 105, 180, 0.7)';
+        ctx.shadowBlur = 6;
+        ctx.stroke();
+        ctx.restore();
+
+        // Halo suave detrás de la estrella.
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, 10, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 105, 180, 0.12)';
+        ctx.fill();
+        ctx.restore();
+
+        // La estrella: radio mayor, tono rosado y resplandor intenso.
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, 3.4, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffb6c1';
+        ctx.shadowColor = '#ff69b4';
+        ctx.shadowBlur = 20;
+        ctx.fill();
+        ctx.restore();
+
+        // Etiqueta pequeña, en cursiva y color tenue.
+        ctx.save();
+        ctx.font = 'italic 300 13px Georgia, serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(255, 182, 193, 0.6)';
+        ctx.fillText('Charlotte', cx, cy - 12);
+        ctx.restore();
+    }
+
     function render(time) {
         const ctx = sky.ctx;
         const w = sky.w;
         const h = sky.h;
         if (!ctx) return;
 
-        ctx.clearRect(0, 0, w, h);
+        // Limpia el canvas correctamente en cada frame.
+        ctx.clearRect(0, 0, sky.canvas.width, sky.canvas.height);
 
-        // Constelaciones reales del cielo.
+        // Constelaciones reales del cielo (solo el zodíaco).
         sky.constellations.forEach((constellation) => {
+            if (!zodiaco.includes(constellation.id)) return;
             drawConstellation(constellation, ctx, w, h, constellation.id === sky.highlightedId);
         });
 
@@ -252,6 +332,9 @@
 
         // Constelaciones personalizadas (encima de todo).
         sky.customs.forEach((custom) => drawCustom(custom, ctx, w, h, time || 0));
+
+        // La anomalía de Charlotte se dibuja una sola vez, al final del ciclo.
+        drawCharlotteAnomaly(ctx, w, h);
     }
 
     /* ------------------------------------------------------------------ */
