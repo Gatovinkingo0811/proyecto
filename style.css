@@ -74,7 +74,11 @@ html, body {
 
 
 /* ==========================================================================
-   Contenedor del Zodíaco con vectores SVG fijos (no deformables)
+   Contenedor del Zodíaco: 11 constelaciones orbitan alrededor de la principal
+   (Acuario, fija en el centro) sin cambiar jamás la forma de sus figuras.
+   Cada caja se traslada por la órbita circular; el SVG interior se
+   contra-rota con la misma fase para que la constelación quede siempre
+   en su orientación legible, sin girar sobre su propio eje.
    ========================================================================== */
 #zodiac-container {
     position: fixed;
@@ -93,20 +97,46 @@ body.constellation-complete #zodiac-container {
     opacity: 1;
 }
 
-/* Las "cajas" que separan las constelaciones en la pantalla para que no se choquen */
+/* Las cajas orbitan alrededor del centro; cada una con su fase --i */
 .constellation-box {
     position: absolute;
+    left: 50%;
+    top: 50%;
     width: 170px;
     height: 170px;
+    margin-left: -85px;
+    margin-top: -85px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     pointer-events: none;
+    --radio: max(130px, min(40vmin, calc(50vmin - 45px)));
+    animation: orbitarZodiaco 120s linear infinite;
+    animation-delay: calc(var(--i, 0) * -10.9090909s);
+    will-change: transform;
 }
 
-/* Etiquetas elegantes para cada constelación */
+/* Acuario es la principal y vive fija en el centro (la interactiva);
+   la caja periférica sobrante se oculta para no duplicarla en la órbita. */
+#zodiac-container .box-aquarius {
+    display: none;
+}
+
+/* El giro orbital ocurre por fuera; la forma interior permanece intacta y
+   se contra-rota para quedar siempre derecha mientras la caja orbita */
+.constellation-svg {
+    width: 100%;
+    height: 100%;
+    transform-origin: center center;
+    animation: contrarotarZodiaco 120s linear infinite;
+    animation-delay: calc(var(--i, 0) * -10.9090909s);
+    filter: drop-shadow(0 0 6px rgba(160, 200, 255, 0.5));
+}
+
+/* Las etiquetas también se contra-rotan para leerse siempre en vertical */
 .constellation-label {
+    display: inline-block;
     font-family: 'Playfair Display', Georgia, serif;
     font-size: 11px;
     font-style: italic;
@@ -116,35 +146,34 @@ body.constellation-complete #zodiac-container {
     text-shadow: 0 0 10px rgba(180, 210, 255, 0.45);
     pointer-events: none;
     user-select: none;
+    animation: contrarotarZodiaco 120s linear infinite;
+    animation-delay: calc(var(--i, 0) * -10.9090909s);
 }
 
-/* El giro ocurre solo por fuera; la forma interior permanece intacta */
-.constellation-svg {
-    width: 100%;
-    height: 100%;
-    transform-origin: center center;
-    animation: rotarConstelacion 60s linear infinite;
-    filter: drop-shadow(0 0 6px rgba(160, 200, 255, 0.5));
+/* Órbita circular alrededor de la constelación principal (el centro) y
+   contra-rotación que mantiene cada figura en su orientación natural. */
+@keyframes orbitarZodiaco {
+    from { transform: rotate(0deg) translateX(var(--radio)); }
+    to   { transform: rotate(360deg) translateX(var(--radio)); }
 }
 
-@keyframes rotarConstelacion {
+@keyframes contrarotarZodiaco {
     from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+    to   { transform: rotate(-360deg); }
 }
 
 /* Distribución en la periferia de la pantalla dejando el centro libre */
-.box-aries       { top: 4%;  left: 50%; transform: translateX(-50%); }
-.box-taurus      { top: 8%;  left: 74%; }
-.box-gemini      { top: 25%; right: 4%; }
-.box-cancer      { top: 50%; right: 3%; transform: translateY(-50%); }
-.box-leo         { bottom: 25%; right: 5%; }
-.box-virgo       { bottom: 8%; right: 22%; }
-.box-libra       { bottom: 4%; left: 50%; transform: translateX(-50%); }
-.box-scorpius    { bottom: 8%; left: 22%; }
-.box-sagittarius { bottom: 25%; left: 5%; }
-.box-capricorn   { top: 50%; left: 3%; transform: translateY(-50%); }
-.box-aquarius    { top: 25%; left: 4%; }
-.box-pisces      { top: 8%;  left: 24%; }
+.box-aries       { --i: 0; }
+.box-taurus      { --i: 1; }
+.box-gemini      { --i: 2; }
+.box-cancer      { --i: 3; }
+.box-leo         { --i: 4; }
+.box-virgo       { --i: 5; }
+.box-libra       { --i: 6; }
+.box-scorpius    { --i: 7; }
+.box-sagittarius { --i: 8; }
+.box-capricorn   { --i: 9; }
+.box-pisces      { --i: 10; }
 
 /* Anomalía de Charlotte en Géminis */
 .box-gemini .charlotte-anomaly-dot,
@@ -178,22 +207,13 @@ body.show-charlotte .box-gemini line[stroke-dasharray],
     .constellation-box {
         width: 105px;
         height: 105px;
+        margin-left: -52.5px;
+        margin-top: -52.5px;
+        --radio: max(100px, min(38vmin, calc(50vmin - 32px)));
     }
     .constellation-label {
         font-size: 9px;
     }
-    .box-aries       { top: 2%;  left: 50%; }
-    .box-taurus      { top: 6%;  left: 72%; }
-    .box-gemini      { top: 22%; right: 2%; }
-    .box-cancer      { top: 48%; right: 1%; }
-    .box-leo         { bottom: 24%; right: 2%; }
-    .box-virgo       { bottom: 6%; right: 18%; }
-    .box-libra       { bottom: 2%; left: 50%; }
-    .box-scorpius    { bottom: 6%; left: 18%; }
-    .box-sagittarius { bottom: 24%; left: 2%; }
-    .box-capricorn   { top: 48%; left: 1%; }
-    .box-aquarius    { top: 22%; left: 2%; }
-    .box-pisces      { top: 6%;  left: 20%; }
 }
 
 /* Universe master container: holds Acuario, zooms out at the finale */
@@ -924,6 +944,9 @@ body.constellation-complete .star-node .star-point {
 /* Accesibilidad: desactivar el movimiento para quien lo prefiera */
 @media (prefers-reduced-motion: reduce) {
     .const-line,
+    .constellation-box,
+    .constellation-svg,
+    .constellation-label,
     .star-node.dormant .star-point,
     .star-node.discovered .star-point,
     .star-node.active {
