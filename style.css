@@ -181,6 +181,39 @@ html, body {
     }
 }
 
+/* Géminis iluminado en el final: el signo de Luis recibe su estrella nueva */
+.zodiac-group.gemini-glow .zodiac-line {
+    stroke: rgba(255, 205, 235, 0.95);
+    stroke-width: 2.4;
+    filter: drop-shadow(0 0 6px rgba(244, 114, 182, 0.9)) drop-shadow(0 0 16px rgba(244, 114, 182, 0.5));
+}
+
+.zodiac-group.gemini-glow .zodiac-dot {
+    fill: #ffe3f5;
+    filter: drop-shadow(0 0 6px rgba(244, 114, 182, 0.95)) drop-shadow(0 0 16px rgba(244, 114, 182, 0.55));
+}
+
+.zodiac-group.gemini-glow .zodiac-name {
+    fill: #fff5fb;
+    filter: drop-shadow(0 0 8px rgba(244, 114, 182, 0.95));
+}
+
+/* Línea que une la estrella de ella con la constelación de Luis */
+.mystery-connect {
+    stroke: rgba(255, 148, 205, 0.9);
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-dasharray: 5 6;
+    filter: drop-shadow(0 0 6px rgba(244, 114, 182, 0.9));
+    animation: zodiacFlow 2.6s linear infinite;
+    opacity: 0;
+    transition: opacity 1.8s ease;
+}
+
+.mystery-connect.show {
+    opacity: 1;
+}
+
 /* Universe master container: holds Acuario, zooms out at the finale */
 #universe-container {
     position: absolute;
@@ -267,12 +300,12 @@ html, body {
     }
 }
 
-/* Estrella misteriosa del final: vive aparte de Acuario y del resto del zodíaco.
-   Lleva un nombre debajo que se revela al final para que se entienda su significado */
+/* Estrella misteriosa del final: aparece junto a Géminis, el signo de Luis,
+   como su estrella nueva. Lleva un nombre debajo que se revela al final. */
 #mystery-star {
     position: fixed;
-    left: 33%;
-    top: 16%;
+    left: 84%;
+    top: 30%;
     width: 14px;
     height: 14px;
     z-index: 8;
@@ -1050,6 +1083,16 @@ body.constellation-complete .star-node .star-point {
     .zodiac-dot {
         r: 1.9;
     }
+
+    #mystery-star {
+        left: 78%;
+        top: 30%;
+    }
+
+    .mystery-caption.named {
+        font-size: 1.05rem;
+        letter-spacing: 0.24em;
+    }
 }
 
 /* Accesibilidad: desactivar el movimiento para quien lo prefiera */
@@ -1062,6 +1105,7 @@ body.constellation-complete .star-node .star-point {
     .star-node.dormant .star-point,
     .star-node.discovered .star-point,
     .star-node.active,
+    .mystery-connect,
     #mystery-star,
     #mystery-star::before,
     #mystery-star::after {

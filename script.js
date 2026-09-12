@@ -159,84 +159,90 @@
 
     // Las otras 11 constelaciones del zodíaco, dispuestas en anillo alrededor de
     // Acuario (que ocupa el centro) para que ninguna pase por encima de la principal.
+    // Formas fieles a cómo se dibujan en el cielo real (Bayer: α, β, γ... de cada una).
     // Coordenadas en porcentaje (%) del viewport, compactas y bien separadas.
     const ZODIAC_CONSTELLATIONS = [
-        // Aries — parte superior central: cuerno y rizo
+        // Aries — superior central: la línea quebrada del carnero (α Hamal, β Sheratan, γ Mesarthim)
         {
             id: 'aries',
             name: 'Aries',
-            stars: [[44, 10], [50, 6], [56, 11], [51, 15], [45, 14]],
-            lines: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 0]]
+            stars: [[59, 8], [49, 6], [43, 11], [55, 15]],
+            lines: [[0, 1], [1, 2], [0, 3]]
         },
-        // Taurus — superior derecha: V de cuernos
+        // Taurus — superior derecha: la V de la cara con Aldebarán (α) y los
+        // cuernos hasta Elnath (β); las Pléyades flotan como un pequeño racimo
         {
             id: 'taurus',
             name: 'Taurus',
-            stars: [[75, 11], [80, 8], [85, 13], [81, 17], [77, 15]],
-            lines: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 0]]
+            stars: [[70, 20], [79, 21], [85, 17], [75, 25], [66, 9], [88, 6], [81, 6], [84, 4], [87, 8], [82, 10]],
+            lines: [[0, 1], [1, 2], [3, 0], [3, 1], [0, 4], [4, 5], [2, 5], [6, 7], [7, 8], [8, 9], [9, 6], [9, 5]]
         },
-        // Gemini — derecha: los gemelos
+        // Gemini — derecha: los gemelos, Cástor y Pólux arriba, cuerpos paralelos
+        // que se juntan en los pies
         {
             id: 'gemini',
             name: 'Gemini',
-            stars: [[87, 28], [91, 33], [87, 39], [91, 44], [84, 35]],
-            lines: [[0, 1], [1, 2], [2, 3], [0, 4], [4, 2]]
+            stars: [[87, 26], [93, 30], [85, 35], [92, 39], [87, 44], [90, 49]],
+            lines: [[0, 1], [0, 2], [2, 4], [1, 3], [3, 5], [4, 5]]
         },
-        // Cancer — derecha central: pequeña Y
+        // Cancer — derecha central: la Y invertida del cangrejo (α Acubens abajo)
         {
             id: 'cancer',
             name: 'Cancer',
-            stars: [[90, 52], [95, 49], [91, 56], [86, 60]],
-            lines: [[0, 1], [0, 2], [2, 3]]
+            stars: [[96, 58], [90, 62], [95, 67], [91, 71], [87, 60]],
+            lines: [[0, 1], [1, 2], [2, 3], [1, 4]]
         },
-        // Leo — inferior derecha: hoz y cuerpo
+        // Leo — inferior derecha: la hoz (signo de interrogación) con Régulo abajo
+        // y el cuerpo triangular hasta Denébola
         {
             id: 'leo',
             name: 'Leo',
-            stars: [[90, 72], [86, 77], [91, 82], [84, 85], [79, 80], [83, 75]],
-            lines: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 0]]
+            stars: [[87, 90], [91, 87], [92, 82], [90, 78], [87, 75], [84, 78], [81, 83], [78, 87], [75, 91]],
+            lines: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 0], [3, 5], [5, 6], [6, 7], [7, 8]]
         },
-        // Virgo — inferior: paralelogramo inclinado (lejos del centro)
+        // Virgo — inferior derecha: la Y de Espiga (α), Porrima (γ) y Vindemiatrix (ε)
         {
             id: 'virgo',
             name: 'Virgo',
-            stars: [[64, 92], [59, 87], [65, 82], [71, 87], [68, 95]],
-            lines: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 0]]
+            stars: [[62, 85], [70, 82], [67, 96], [57, 89], [64, 92]],
+            lines: [[0, 1], [0, 2], [0, 3], [3, 4]]
         },
-        // Libra — inferior central: la balanza
+        // Libra — inferior central: la balanza, un cuadrilátero inclinado
         {
             id: 'libra',
             name: 'Libra',
-            stars: [[46, 94], [51, 89], [56, 94], [51, 98]],
-            lines: [[0, 1], [1, 2], [1, 3]]
+            stars: [[50, 92], [44, 97], [38, 94], [54, 96]],
+            lines: [[0, 1], [1, 2], [2, 3], [3, 0]]
         },
-        // Scorpius — inferior izquierda: cola de escorpión
+        // Scorpius — inferior izquierda: el corazón (Antares) y la gran cola en J
+        // que termina en el doble aguijón (Shaula y Lesath)
         {
             id: 'scorpius',
             name: 'Scorpius',
-            stars: [[30, 90], [24, 85], [18, 88], [13, 94], [19, 98], [26, 94]],
-            lines: [[0, 1], [1, 2], [2, 3], [2, 4], [4, 5]]
+            stars: [[24, 93], [19, 90], [25, 89], [28, 97], [31, 93], [21, 87], [16, 85], [12, 89], [8, 87], [5, 92], [6, 97], [11, 94]],
+            lines: [[3, 0], [0, 1], [3, 2], [3, 4], [0, 5], [5, 6], [6, 7], [7, 8], [8, 9], [9, 10], [7, 11]]
         },
-        // Sagittarius — izquierda: arco de la tetera
+        // Sagittarius — izquierda: la tetera, con la tapa, el pico, el asa y el cuerpo
         {
             id: 'sagittarius',
             name: 'Sagittarius',
-            stars: [[10, 72], [6, 65], [12, 59], [18, 63], [16, 70]],
-            lines: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 0], [0, 2]]
+            stars: [[16, 62], [13, 61], [10, 64], [7, 67], [5, 73], [9, 78], [16, 77], [19, 71]],
+            lines: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 0]]
         },
-        // Capricornus — izquierda: V del pez-cabra
+        // Capricornus — superior izquierda: el triángulo de la cabra (γ, α, β, δ)
         {
             id: 'capricornus',
             name: 'Capricornus',
-            stars: [[7, 50], [12, 45], [9, 39], [4, 41], [3, 47]],
-            lines: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 0]]
+            stars: [[9, 40], [15, 42], [12, 47], [6, 48], [18, 45]],
+            lines: [[0, 1], [1, 2], [2, 3], [1, 4]]
         },
-        // Pisces — superior izquierda: cadena con nudo
+        // Pisces — superior izquierda: el círculo de los peces unido por la cuerda
+        // hasta Alrischa (α)
         {
             id: 'pisces',
             name: 'Pisces',
-            stars: [[11, 28], [17, 24], [22, 28], [28, 24], [24, 19], [18, 19]],
-            lines: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 0]]
+            stars: [[20, 15], [25, 17], [27, 21], [24, 26], [20, 25], [14, 26], [9, 29]],
+            lines: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 0], [4, 5], [5, 6]]
         }
     ];
 
@@ -797,6 +803,7 @@
         ZODIAC_CONSTELLATIONS.forEach((cz, idx) => {
             const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
             group.setAttribute('class', 'zodiac-group');
+            group.setAttribute('id', 'zodiac-' + cz.id);
 
             // Grupo interno animado: cada constelación gira y se mece con su propio ritmo
             const glider = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -975,12 +982,47 @@
         }, delay);
     }
 
+    // Conecta la estrella de ella (elemento HTML fijo) con su constelación del
+    // zodíaco (SVG): una línea luminosa que crece entre ambos en el momento en
+    // que la estrella aparece en el cielo.
+    function connectMysteryStar() {
+        const geminiGroup = document.getElementById('zodiac-gemini');
+        if (!geminiGroup) return;
+        const cz = ZODIAC_CONSTELLATIONS.find(c => c.id === 'gemini');
+        if (!cz) return;
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        const center = cz.stars.reduce((acc, [px, py]) => {
+            acc.x += px;
+            acc.y += py;
+            return acc;
+        }, { x: 0, y: 0 });
+        center.x = (center.x / cz.stars.length / 100) * w;
+        center.y = (center.y / cz.stars.length / 100) * h;
+
+        const rect = mysteryStar.getBoundingClientRect();
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', center.x);
+        line.setAttribute('y1', center.y);
+        line.setAttribute('x2', rect.left + rect.width / 2);
+        line.setAttribute('y2', rect.top + rect.height / 2);
+        line.setAttribute('class', 'mystery-connect');
+        zodiacBackground.appendChild(line);
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => line.classList.add('show'));
+        });
+    }
+
     // Pantalla de cierre: una pequeña historia final escenificada.
     // 1) Acuario queda completa y respira durante un instante.
     // 2) El cielo se aleja y el zodíaco se revela; el texto flota sobre él.
-    // 3) Acuario se ilumina por encima de las demás.
-    // 4) Aparece una estrella solitaria: no está en el mapa.
-    // 5) Esa estrella recibe un nombre — Charlotte — porque la puso Luis para ella.
+    // 3) Entre todas las constelaciones hay una que es de Luis: sus estrellas ya
+    //    estaban contadas, hasta que ella llegó. No se nombra, solo se muestra.
+    // 4) Acuario se ilumina por encima de las demás.
+    // 5) Aparece una estrella solitaria junto a la constelación de Luis. En ese
+    //    momento su constelación se alumbra y se conecta con dicha estrella: ella
+    //    apareció poco a poco en su vida y llegó para quedarse para siempre.
+    // 6) Esa estrella lleva el nombre de Charlotte, porque la puso Luis para ella.
     function showFinale() {
         finaleStarted = true;
         document.body.classList.add('constellation-complete');
@@ -997,11 +1039,12 @@
             finaleOverlay.classList.add('show');
         }, 1600);
 
-        // Todas las demás estrellas tienen nombre de la historia
+        // El final: entre las constelaciones hay una que es suya (no se dice cuál,
+        // se ve al iluminarse cuando aparece la estrella de ella).
         const texts = [
-            "Todas las estrellas de este cielo tienen un nombre.",
-            "La mayoría se los puso la historia.",
-            "Pero hay una que no es como las demás."
+            "Entre todas las constelaciones del cielo, hay una que siempre fue mía.",
+            "Sus estrellas ya estaban contadas.",
+            "Pero entonces llegaste tú."
         ];
         const textsStart = 3800;
         const textGap = 3000;
@@ -1013,19 +1056,30 @@
         const radiantTime = textsStart + texts.length * textGap + 400;
         setTimeout(() => universeContainer.classList.add('radiant'), radiantTime);
 
-        // Aparece la estrella misteriosa, separada de todo, con la pregunta bajo ella
+        // Aparece la estrella misteriosa junto a la constelación de Luis, con la pregunta
+        // bajo ella. En ese instante su constelación se alumbra y se conecta con esta.
         const mysteryTime = radiantTime + 2800;
         setTimeout(() => {
             mysteryStar.classList.add('visible');
             triggerHaptic('light');
             playMysteryNote();
+            const geminiGroup = document.getElementById('zodiac-gemini');
+            if (geminiGroup) geminiGroup.classList.add('gemini-glow');
+            connectMysteryStar();
         }, mysteryTime);
 
         // "Es la única que no está en ningún mapa."
-        addFinaleParagraph("Es la única que no está en ningún mapa.", mysteryTime + 2400);
+        addFinaleParagraph("Es la única estrella que no está en ningún mapa.", mysteryTime + 2400);
+
+        // Puente: ella apareció poco a poco en su vida y llegó para quedarse
+        addFinaleParagraph("Tú apareciste poco a poco en mi vida.", mysteryTime + 3800);
+        addFinaleParagraph("Y llegaste para quedarte para siempre.", mysteryTime + 5400);
+
+        // La estrella que nadie más tiene lleva el nombre de ella
+        addFinaleParagraph("Esa estrella lleva tu nombre.", mysteryTime + 7000);
 
         // La estrella recibe su nombre: Charlotte
-        const nameTime = mysteryTime + 5800;
+        const nameTime = mysteryTime + 8600;
         setTimeout(() => {
             mysteryCaption.textContent = 'Charlotte';
             mysteryCaption.classList.add('named');
