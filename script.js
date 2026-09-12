@@ -190,7 +190,6 @@
     const finaleMessage = document.getElementById('finale-message');
     const finaleSign = document.querySelector('.finale-sign');
     const mysteryStar = document.getElementById('mystery-star');
-    const mysteryCaption = document.getElementById('mystery-caption');
 
     // --- RESPUESTA HÁPTICA PARA MÓVIL ---
     function triggerHaptic(type = 'light') {
@@ -853,48 +852,25 @@
         );
     }
 
-    // La constelación de ella, dibujada sobre el cielo real en el momento en que
-    // su estrella recibe el nombre: una figura pequeña que solo ella posee.
-    let herConstellationId = null;
-    function revealHerConstellation() {
-        if (!window.CelestialSky) return;
-        if (herConstellationId) CelestialSky.removeCustom(herConstellationId);
-        const rect = mysteryStar.getBoundingClientRect();
-        const cx = (rect.left + rect.width / 2) / window.innerWidth;
-        const cy = (rect.top + rect.height / 2) / window.innerHeight;
-        const r = 0.03;
-        const nodes = [
-            [cx, cy + 1.5 * r],
-            [cx - 1.15 * r, cy + 0.25 * r],
-            [cx - 1.35 * r, cy - 0.55 * r],
-            [cx - 0.55 * r, cy - 0.95 * r],
-            [cx, cy - 0.5 * r],
-            [cx + 0.55 * r, cy - 0.95 * r],
-            [cx + 1.35 * r, cy - 0.55 * r],
-            [cx + 1.15 * r, cy + 0.25 * r]
-        ];
-        const edges = [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 0]];
-        const custom = CelestialSky.drawCustomConstellation('Charlotte', nodes, edges, {
-            color: 'rgba(255, 182, 224, 0.95)'
-        });
-        herConstellationId = custom.id;
-    }
-
-    // Pantalla de cierre: una pequeña historia final escenificada.
-    // 1) Acuario queda completa y respira durante un instante.
+// Pantalla de cierre: una pequeña historia final escenificada.
+    // 1) Al conectarse las 14 estrellas, Acuario (la constelación principal)
+    //    irradia de inmediato, con un resplandor suave.
     // 2) El cielo se aleja y el zodíaco se revela; el texto flota sobre él.
-    // 3) Entre todas las constelaciones hay una que es de Luis: sus estrellas ya
-    //    estaban contadas, hasta que ella llegó. No se nombra, solo se muestra.
-    // 4) Acuario se ilumina por encima de las demás.
-    // 5) Aparece una estrella solitaria junto a la constelación de Luis. En ese
-    //    momento su constelación se alumbra y se conecta con dicha estrella: ella
-    //    apareció poco a poco en su vida y llegó para quedarse para siempre.
-    // 6) Esa estrella lleva el nombre de Charlotte, porque la puso Luis para ella.
+    // 3) El mensaje final se escenifica y la firma cierra la experiencia.
+    // 4) Se dejan unos 30s para que pueda leer a tiempo, y después el texto se
+    //    va desvaneciendo poco a poco, dejando solo el cielo de fondo.
+    // 5) Tras ese cierre aparece la estrella de Charlotte junto a Géminis (ya no
+    //    al instante): su constelación se alumbra y se conecta con ella.
     function showFinale() {
         finaleStarted = true;
         document.body.classList.add('constellation-complete');
         triggerHaptic('success');
         playFinaleMelody();
+
+        // El resplandor de la constelación principal se aplica de una vez, en el
+        // momento en que termina de conectarse la 14ª estrella (no se activa
+        // después).
+        universeContainer.classList.add('radiant');
 
         // Pequeña pausa con Acuario completa brillando antes del zoom
         setTimeout(() => {
@@ -917,46 +893,43 @@
             addFinaleParagraph(text, textsStart + i * textGap);
         });
 
-        // Acuario irradia por encima del resto
-        const radiantTime = textsStart + texts.length * textGap + 400;
-        setTimeout(() => universeContainer.classList.add('radiant'), radiantTime);
+        // El resto de frases flota en la misma pausa de lectura.
+        const lastMainTime = textsStart + texts.length * textGap;
+        addFinaleParagraph("Es la única estrella que no está en ningún mapa.", lastMainTime + 2200);
+        addFinaleParagraph("Tú apareciste poco a poco en mi vida.", lastMainTime + 4800);
+        addFinaleParagraph("Y llegaste para quedarte para siempre.", lastMainTime + 6400);
+        addFinaleParagraph("Esa estrella lleva tu nombre.", lastMainTime + 8000);
+        addFinaleParagraph("La puse yo, y la puse para ti.", lastMainTime + 9800);
 
-        // Aparece la estrella misteriosa junto a la constelación de Luis, con la pregunta
-        // bajo ella. En ese instante su constelación se alumbra y se conecta con esta.
-        const mysteryTime = radiantTime + 2800;
+        // La firma cierra la experiencia
+        const signTime = lastMainTime + 12800;
+        setTimeout(() => {
+            finaleSign.classList.add('show-sign');
+        }, signTime);
+
+        // Unos 30s para que pueda leer a tiempo... y después el texto se va
+        // esfumando (desvaneciéndose) de a poco, quedando el fondo estrellado.
+        const readMs = 30000;
+        const fadeTime = signTime + readMs;
+        setTimeout(() => {
+            finaleMessage.classList.add('fade-out');
+            finaleSign.classList.add('fade-out');
+        }, fadeTime);
+
+        // La estrella de Charlotte en Géminis aparece al terminar esos 30s,
+        // nunca al instante. Su constelación se alumbra y se conecta con ella.
+        const starTime = fadeTime + 2500;
         setTimeout(() => {
             mysteryStar.classList.add('visible');
             triggerHaptic('light');
             playMysteryNote();
             connectMysteryStar();
-        }, mysteryTime);
+        }, starTime);
 
-        // "Es la única que no está en ningún mapa."
-        addFinaleParagraph("Es la única estrella que no está en ningún mapa.", mysteryTime + 2400);
-
-        // Puente: ella apareció poco a poco en su vida y llegó para quedarse
-        addFinaleParagraph("Tú apareciste poco a poco en mi vida.", mysteryTime + 3800);
-        addFinaleParagraph("Y llegaste para quedarte para siempre.", mysteryTime + 5400);
-
-        // La estrella que nadie más tiene lleva el nombre de ella
-        addFinaleParagraph("Esa estrella lleva tu nombre.", mysteryTime + 7000);
-
-        // La estrella recibe su nombre: Charlotte, y su constelación se dibuja sobre el cielo
-        const nameTime = mysteryTime + 8600;
+        // El escenario se retira por completo y queda solo el cielo de fondo.
         setTimeout(() => {
-            mysteryCaption.textContent = 'Charlotte';
-            mysteryCaption.classList.add('named');
-            revealHerConstellation();
-            triggerHaptic('light');
-        }, nameTime);
-
-        // "La puse yo, y la puse para ti."
-        addFinaleParagraph("La puse yo, y la puse para ti.", nameTime + 400);
-
-        // La firma cierra la experiencia
-        setTimeout(() => {
-            finaleSign.classList.add('show-sign');
-        }, nameTime + 5600);
+            finaleOverlay.classList.remove('show');
+        }, starTime + 2000);
     }
 
 
