@@ -11,8 +11,11 @@
  * - Estilo: líneas semitransparentes rgba(255,255,255,0.3) y trazo fino;
  *   nodos principales con un sutil resplandor (shadowBlur).
  * - Zodíaco: solo se dibujan las 12 constelaciones de `zodiaco`.
+ * - Halo circular: cada figura se normaliza a su centroide, se escala (0.45) y
+ *   se traslada a un ángulo del anillo (reloj) alrededor del centro.
  * - Anomalía: la estrella de Charlotte se inyecta junto a un extremo de
- *   Géminis con una conexión delgada y un estilo rosado único.
+ *   Géminis con una conexión delgada y un estilo rosado único, y sigue la
+ *   normalización y traslación del halo (persiste con la figura).
  * - API pública: window.CelestialSky
  *   .init(canvas)            prepara el mapa (fetch + render).
  *   .drawCustomConstellation(name, nodes, edges)  dibuja una constelación
@@ -103,48 +106,91 @@
     /* Render                                                              */
     /* ------------------------------------------------------------------ */
 
-    function drawConstellation(constellation, ctx, w, h, highlight) {
-        const stroke = highlight ? HIGHLIGHT_COLOR : 'rgba(255, 255, 255, 0.3)';
-        const width = highlight ? 1.7 : 1;
+    // Empaqueta las 12 constelaciones del zodíaco en un anillo perfecto (halo)
+// alrededor del centro, simulando un reloj. Cada figura:
+//   1) Se proyecta a píxeles (RA/Dec reales, con desenvuelto de ángulo).
+//   2) Se normaliza restando su propio centroide (lleva la forma a 0,0).
+//   3) Se escala para que no choquen entre sí.
+//   4) Se traslada a su punto ancla en el arco del halo.
+function buildHaloLayout(w, h) {
+    const zodiac = sky.constellations.filter((c) => zodiaco.includes(c.id));
+    const centerX = w / 2;
+    const centerY = h / 2;
+    const radius = Math.min(w, h) * 0.35;
 
-        ctx.save();
-        ctx.strokeStyle = stroke;
-        ctx.lineWidth = width;
-        ctx.lineJoin = 'round';
-        ctx.shadowColor = highlight ? 'rgba(255, 130, 200, 0.85)' : 'rgba(140, 170, 255, 0.4)';
-        ctx.shadowBlur = highlight ? 18 : 5;
+    const layout = new Map();
 
-        (constellation.lines || []).forEach((line) => {
-            const pts = projectLineCoords(line, w, h);
-            if (!pts.length) return;
-            ctx.beginPath();
-            pts.forEach((p, i) => {
-                if (i === 0) ctx.moveTo(p.x, p.y);
-                else ctx.lineTo(p.x, p.y);
-            });
-            ctx.stroke();
+    zodiac.forEach((constellation, index) => {
+        const projLines = (constellation.lines || [])
+            .map((line) => projectLineCoords(line, w, h))
+            .filter((pts) => pts.length);
+
+        // Centroide de la figura completa.
+        let cx = 0;
+        let cy = 0;
+        let n = 0;
+        projLines.forEach((ln) => ln.forEach((p) => { cx += p.x; cy += p.y; n += 1; }));
+        if (!n) return;
+
+        // Ángulo del reloj y punto de anclaje en el halo.
+        const angle = (index / 12) * Math.PI * 2;
+        const targetX = centerX + Math.cos(angle) * radius;
+        const targetY = centerY + Math.sin(angle) * radius;
+
+        // Normalización (agrupación en 0,0), escala y traslación al anillo.
+        const scale = 0.45;
+        const packedLines = projLines.map((ln) =>
+            ln.map((p) => ({
+                x: targetX + (p.x - (cx / n)) * scale,
+                y: targetY + (p.y - (cy / n)) * scale
+            }))
+        );
+
+        layout.set(constellation.id, { lines: packedLines, targetX: targetX, targetY: targetY, angle: angle });
+    });
+
+    return layout;
+}
+
+function drawPackedConstellation(layout, ctx, highlight) {
+    const lines = layout.lines;
+    const stroke = highlight ? HIGHLIGHT_COLOR : 'rgba(255, 255, 255, 0.3)';
+    const width = highlight ? 1.7 : 1;
+
+    ctx.save();
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = width;
+    ctx.lineJoin = 'round';
+    ctx.shadowColor = highlight ? 'rgba(255, 130, 200, 0.85)' : 'rgba(140, 170, 255, 0.4)';
+    ctx.shadowBlur = highlight ? 18 : 5;
+
+    lines.forEach((pts) => {
+        if (!pts.length) return;
+        ctx.beginPath();
+        pts.forEach((p, i) => {
+            if (i === 0) ctx.moveTo(p.x, p.y);
+            else ctx.lineTo(p.x, p.y);
         });
-        ctx.restore();
+        ctx.stroke();
+    });
+    ctx.restore();
 
-        // Nodos estelares principales: puntos con un ligero resplandor.
-        const dots = new Set();
-        (constellation.lines || []).forEach((line) => {
-            line.forEach((p) => dots.add(p[0].toFixed(2) + '|' + p[1].toFixed(2)));
-        });
+    // Nodos estelares principales (deduplicados por proximidad) con resplandor.
+    const dots = new Set();
+    lines.forEach((ln) => ln.forEach((p) => dots.add(Math.round(p.x * 4) + '|' + Math.round(p.y * 4))));
 
-        ctx.save();
-        ctx.shadowColor = highlight ? 'rgba(255, 150, 220, 0.95)' : 'rgba(200, 225, 255, 0.7)';
-        ctx.shadowBlur = highlight ? 16 : 7;
-        ctx.fillStyle = highlight ? 'rgba(255, 220, 245, 0.98)' : 'rgba(255, 255, 255, 0.82)';
-        dots.forEach((key) => {
-            const [ra, dec] = key.split('|').map(Number);
-            const p = projectPoint(ra, dec, w, h);
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, highlight ? 2.4 : 1.5, 0, Math.PI * 2);
-            ctx.fill();
-        });
-        ctx.restore();
-    }
+    ctx.save();
+    ctx.shadowColor = highlight ? 'rgba(255, 150, 220, 0.95)' : 'rgba(200, 225, 255, 0.7)';
+    ctx.shadowBlur = highlight ? 16 : 7;
+    ctx.fillStyle = highlight ? 'rgba(255, 220, 245, 0.98)' : 'rgba(255, 255, 255, 0.82)';
+    dots.forEach((key) => {
+        const [px, py] = key.split('|').map(Number);
+        ctx.beginPath();
+        ctx.arc(px / 4, py / 4, highlight ? 2.4 : 1.5, 0, Math.PI * 2);
+        ctx.fill();
+    });
+    ctx.restore();
+}
 
     function drawCustom(custom, ctx, w, h, time) {
         const color = custom.color || 'rgba(255, 158, 205, 0.95)';
@@ -241,42 +287,33 @@
     }
 
     // La anomalía de Charlotte: una estrella que no pertenece a ningún mapa real.
-    // Nace en un extremo de Géminis (el pie de la figura) con una línea delgada
-    // hacia afuera y se dibuja con un estilo único (tono rosado, más grande y
-    // con resplandor intenso) junto a su etiqueta.
-    function drawCharlotteAnomaly(ctx, w, h) {
-        const gem = sky.constellations.find((c) => c.id === 'Gem');
-        if (!gem || !gem.lines || !gem.lines.length) return;
+    // Nace en un extremo de Géminis (el pie de la figura, ya empaquetada en el
+    // halo) con una línea delgada hacia afuera y se dibuja con un estilo único
+    // (tono rosado, más grande y con resplandor intenso) junto a su etiqueta.
+    // Al partir de los puntos empaquetados de Géminis, sigue la normalización y
+    // traslación del halo: se mueve con la figura sin romperse.
+    function drawCharlotteAnomaly(geminiLayout, ctx, w, h) {
+        const lines = geminiLayout && geminiLayout.lines;
+        if (!lines || !lines.length) return;
 
-        const line = gem.lines[0];
+        const line = lines[0];
         if (!line || line.length < 2) return;
 
         const tip = line[line.length - 1];
         const prev = line[line.length - 2];
 
-        // Desenvuelve el ángulo como en la proyección del cielo.
-        let tipRA = normalize(tip[0]);
-        let prevRA = normalize(prev[0]);
-        while (tipRA - prevRA > 180) tipRA -= 360;
-        while (tipRA - prevRA < -180) tipRA += 360;
-
-        const tipX = (tipRA / 360) * w;
-        const tipY = ((90 - tip[1]) / 180) * h;
-        const prevX = (prevRA / 360) * w;
-        const prevY = ((90 - prev[1]) / 180) * h;
-
-        // Dirección hacia afuera del extremo del pie de Géminis.
-        const dx = tipX - prevX;
-        const dy = tipY - prevY;
+        // Dirección hacia afuera del extremo del pie de Géminis (en el halo).
+        const dx = tip.x - prev.x;
+        const dy = tip.y - prev.y;
         const len = Math.hypot(dx, dy) || 1;
         const ext = Math.max(18, Math.min(w, h) * 0.06);
-        const cx = tipX + (dx / len) * ext;
-        const cy = tipY + (dy / len) * ext;
+        const cx = tip.x + (dx / len) * ext;
+        const cy = tip.y + (dy / len) * ext;
 
         // Línea delgada y sutil que conecta el extremo con la estrella.
         ctx.save();
         ctx.beginPath();
-        ctx.moveTo(tipX, tipY);
+        ctx.moveTo(tip.x, tip.y);
         ctx.lineTo(cx, cy);
         ctx.strokeStyle = 'rgba(255, 182, 193, 0.32)';
         ctx.lineWidth = 1;
@@ -321,10 +358,12 @@
         // Limpia el canvas correctamente en cada frame.
         ctx.clearRect(0, 0, sky.canvas.width, sky.canvas.height);
 
-        // Constelaciones reales del cielo (solo el zodíaco).
-        sky.constellations.forEach((constellation) => {
-            if (!zodiaco.includes(constellation.id)) return;
-            drawConstellation(constellation, ctx, w, h, constellation.id === sky.highlightedId);
+        // Halo: las 12 constelaciones del zodíaco en un anillo perfecto
+        // alrededor del centro (simula un reloj).
+        const halo = buildHaloLayout(w, h);
+
+        halo.forEach((layout, id) => {
+            drawPackedConstellation(layout, ctx, id === sky.highlightedId);
         });
 
         // Conexiones.
@@ -333,8 +372,9 @@
         // Constelaciones personalizadas (encima de todo).
         sky.customs.forEach((custom) => drawCustom(custom, ctx, w, h, time || 0));
 
-        // La anomalía de Charlotte se dibuja una sola vez, al final del ciclo.
-        drawCharlotteAnomaly(ctx, w, h);
+        // La anomalía de Charlotte se dibuja una sola vez, al final del ciclo,
+        // sujeta a la misma normalización y traslación del halo (persistencia).
+        drawCharlotteAnomaly(halo.get('Gem'), ctx, w, h);
     }
 
     /* ------------------------------------------------------------------ */
