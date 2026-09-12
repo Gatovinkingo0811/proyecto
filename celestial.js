@@ -151,62 +151,82 @@
     ];
     const ORBIT_RADIUS_FACTOR = 0.30; // 30% of the smaller canvas dimension for orbital radius
 
-    // Coloca cada constelación en su caja (zona fija) y la hace girar sobre su
-    // PROPIO centroide (transform-origin center center), sin órbita compartida:
-    //   1) Se proyecta a píxeles (RA/Dec reales, con desenvuelto de ángulo).
-    //   2) Se normaliza restando su propio centroide (forma apuntando a 0,0).
-    //   3) Se escala para que quepa dentro de su caja (nunca invade la vecina).
-    //   4) Se rota alrededor de su centroide y se traslada al ancla de su caja.
+    // Cache para las formas normalizadas de cada constelación (bloqueo de forma).
+    // Una vez calculada la forma, no se vuelve a recalcular: solo se rota y traslada.
+    const shapeCache = new Map();
+
+    // Construye el layout orbital: las 11 constelaciones del zodíaco (menos Acuario)
+    // orbitan en un círculo amplio alrededor del centro de la pantalla.
+    // La forma de cada constelación se calcula UNA sola vez y se guarda en shapeCache.
+    // En cada frame solo se aplica la traslación orbital (sin rotación de la figura).
     function buildBoxLayout(w, h) {
         const zodiac = sky.constellations.filter((c) => zodiaco.includes(c.id) && c.id !== MAIN_ID);
         const layout = new Map();
+        const count = zodiac.length || 1;
+
+        // Radio orbital: 38% de la dimensión menor → halo amplio y visible
+        const orbitRadius = Math.min(w, h) * 0.38;
 
         zodiac.forEach((constellation, index) => {
-            const projLines = (constellation.lines || [])
-                .map((line) => projectLineCoords(line, w, h))
-                .filter((pts) => pts.length);
+            // --- Forma bloqueada: calcular una sola vez y cachear ---
+            if (!shapeCache.has(constellation.id)) {
+                const projLines = (constellation.lines || [])
+                    .map((line) => projectLineCoords(line, w, h))
+                    .filter((pts) => pts.length);
 
-            // Centroide de la figura completa.
-            let cx = 0;
-            let cy = 0;
-            let n = 0;
-            projLines.forEach((ln) => ln.forEach((p) => { cx += p.x; cy += p.y; n += 1; }));
-            if (!n) return;
+                // Centroide de la figura completa
+                let cx = 0;
+                let cy = 0;
+                let n = 0;
+                projLines.forEach((ln) => ln.forEach((p) => { cx += p.x; cy += p.y; n += 1; }));
+                if (!n) return;
+                cx /= n;
+                cy /= n;
 
-            // Distancia máxima al centroide: marca el tamaño real de la figura.
-            let maxDist = 0;
-            projLines.forEach((ln) => ln.forEach((p) => {
-                const d = Math.hypot(p.x - (cx / n), p.y - (cy / n));
-                if (d > maxDist) maxDist = d;
-            }));
-            maxDist = Math.max(maxDist, 1);
+                // Distancia máxima al centroide: tamaño real de la figura
+                let maxDist = 0;
+                projLines.forEach((ln) => ln.forEach((p) => {
+                    const d = Math.hypot(p.x - cx, p.y - cy);
+                    if (d > maxDist) maxDist = d;
+                }));
+                maxDist = Math.max(maxDist, 1);
 
-            // Compute orbital position for this constellation (orbit around central Aquarius)
-            const orbitRadius = ORBIT_RADIUS_FACTOR * Math.min(w, h) / 2;
-            const angle = globalAngle + index * (2 * Math.PI / zodiac.length);
-            const centerX = w / 2 + orbitRadius * Math.cos(angle);
-            const centerY = h / 2 + orbitRadius * Math.sin(angle);
+                // Escala: cada constelación ocupa como mucho ~10% de la dimensión menor
+                // para que quepan las 11 sin superponerse en el halo
+                const maxExt = Math.min(w, h) * 0.10;
+                const scale = Math.min(2.2, Math.max(0.4, maxExt / maxDist));
 
-            // Scale to fit within allocated space (same as before)
-            const maxExt = Math.min(w, h) * 0.22;
-            const scale = Math.min(2.6, Math.max(0.5, maxExt / (maxDist * 2)));
+                // Normalizar: restar centroide y aplicar escala → forma centrada en (0,0)
+                const normLines = projLines.map((ln) =>
+                    ln.map((p) => ({
+                        x: (p.x - cx) * scale,
+                        y: (p.y - cy) * scale
+                    }))
+                );
 
-            // Position points centered and scaled around the orbital center
-            const packedLines = projLines.map((ln) =>
-                ln.map((p) => {
-                    const localX = (p.x - (cx / n)) * scale;
-                    const localY = (p.y - (cy / n)) * scale;
-                    return {
-                        x: centerX + localX,
-                        y: centerY + localY
-                    };
-                })
+                shapeCache.set(constellation.id, { normLines, scale });
+            }
+
+            const cached = shapeCache.get(constellation.id);
+            if (!cached) return;
+
+            // --- Posición orbital: ángulo distribuido uniformemente en el círculo ---
+            const angle = globalAngle + index * (2 * Math.PI / count);
+            const centerX = (w / 2) + orbitRadius * Math.cos(angle);
+            const centerY = (h / 2) + orbitRadius * Math.sin(angle);
+
+            // Trasladar la forma bloqueada al punto orbital (sin rotar la figura)
+            const packedLines = cached.normLines.map((ln) =>
+                ln.map((p) => ({
+                    x: centerX + p.x,
+                    y: centerY + p.y
+                }))
             );
 
             layout.set(constellation.id, {
                 lines: packedLines,
                 angle: angle,
-                scale: scale
+                scale: cached.scale
             });
         });
 
@@ -540,6 +560,9 @@ function drawPackedConstellation(layout, ctx, highlight) {
         canvas.style.height = sky.h + 'px';
 
         sky.ready = Boolean(sky.ctx);
+
+        // Limpiar cache de formas para recalcular con las nuevas dimensiones
+        shapeCache.clear();
     }
 
     function init(canvasEl) {
