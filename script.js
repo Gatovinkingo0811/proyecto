@@ -159,90 +159,87 @@
 
     // Las otras 11 constelaciones del zodíaco, dispuestas en anillo alrededor de
     // Acuario (que ocupa el centro) para que ninguna pase por encima de la principal.
-    // Formas fieles a cómo se dibujan en el cielo real (Bayer: α, β, γ... de cada una).
-    // Coordenadas en porcentaje (%) del viewport, compactas y bien separadas.
+    // Formas tomadas de un grafo 2D por constelación: cada nodo (A, B, C...) es una
+    // estrella y cada conexión es una línea real. Aquí cada forma se coloca con un
+    // ancla (posición del origen 0,0 en % del viewport) y una escala (% por unidad),
+    // con el eje Y positivo hacia abajo para que no se invierta la figura.
     const ZODIAC_CONSTELLATIONS = [
-        // Aries — superior central: la línea quebrada del carnero (α Hamal, β Sheratan, γ Mesarthim)
+        // Aries (Carnero) — ancla [42,5], escala 2
         {
             id: 'aries',
             name: 'Aries',
-            stars: [[59, 8], [49, 6], [43, 11], [55, 15]],
-            lines: [[0, 1], [1, 2], [0, 3]]
+            stars: [[42, 5], [48, 9], [56, 11], [58, 7]],
+            lines: [[0, 1], [1, 2], [2, 3]]
         },
-        // Taurus — superior derecha: la V de la cara con Aldebarán (α) y los
-        // cuernos hasta Elnath (β); las Pléyades flotan como un pequeño racimo
+        // Taurus — ancla [72,12], escala 2
         {
             id: 'taurus',
             name: 'Taurus',
-            stars: [[70, 20], [79, 21], [85, 17], [75, 25], [66, 9], [88, 6], [81, 6], [84, 4], [87, 8], [82, 10]],
-            lines: [[0, 1], [1, 2], [3, 0], [3, 1], [0, 4], [4, 5], [2, 5], [6, 7], [7, 8], [8, 9], [9, 6], [9, 5]]
+            stars: [[72, 22], [76, 18], [82, 22], [78, 14], [86, 8], [76, 12]],
+            lines: [[0, 1], [2, 1], [1, 3], [3, 4], [3, 5]]
         },
-        // Gemini — derecha: los gemelos, Cástor y Pólux arriba, cuerpos paralelos
-        // que se juntan en los pies
+        // Gemini — ancla [84,30], escala 2
         {
             id: 'gemini',
             name: 'Gemini',
-            stars: [[87, 26], [93, 30], [85, 35], [92, 39], [87, 44], [90, 49]],
-            lines: [[0, 1], [0, 2], [2, 4], [1, 3], [3, 5], [4, 5]]
+            stars: [[86, 40], [86, 36], [84, 30], [88, 30], [92, 40], [92, 36], [90, 30], [94, 30]],
+            lines: [[0, 1], [1, 2], [1, 3], [4, 5], [5, 6], [5, 7], [0, 4], [1, 5]]
         },
-        // Cancer — derecha central: la Y invertida del cangrejo (α Acubens abajo)
+        // Cancer — ancla [88,62], escala 2.5
         {
             id: 'cancer',
             name: 'Cancer',
-            stars: [[96, 58], [90, 62], [95, 67], [91, 71], [87, 60]],
+            stars: [[88, 72], [88, 67], [93, 62], [95.5, 57], [83, 62]],
             lines: [[0, 1], [1, 2], [2, 3], [1, 4]]
         },
-        // Leo — inferior derecha: la hoz (signo de interrogación) con Régulo abajo
-        // y el cuerpo triangular hasta Denébola
+        // Leo (León) — ancla [74,80], escala 1.6
         {
             id: 'leo',
             name: 'Leo',
-            stars: [[87, 90], [91, 87], [92, 82], [90, 78], [87, 75], [84, 78], [81, 83], [78, 87], [75, 91]],
-            lines: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 0], [3, 5], [5, 6], [6, 7], [7, 8]]
+            stars: [[74, 83.2], [75.6, 86.4], [78.8, 86.4], [80.4, 83.2], [78.8, 80], [85.2, 80], [88.4, 83.2], [88.4, 78.4]],
+            lines: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [5, 7]]
         },
-        // Virgo — inferior derecha: la Y de Espiga (α), Porrima (γ) y Vindemiatrix (ε)
+        // Virgo (Virgen) — ancla [60,85], escala 1.8
         {
             id: 'virgo',
             name: 'Virgo',
-            stars: [[62, 85], [70, 82], [67, 96], [57, 89], [64, 92]],
-            lines: [[0, 1], [0, 2], [0, 3], [3, 4]]
+            stars: [[60, 94], [63.6, 90.4], [61.8, 85], [65.4, 86.8], [69, 90.4], [70.8, 85], [74.4, 92.2]],
+            lines: [[0, 1], [1, 2], [1, 3], [3, 4], [4, 5], [4, 6]]
         },
-        // Libra — inferior central: la balanza, un cuadrilátero inclinado
+        // Libra (Balanza) — ancla [44,90], escala 1.8
         {
             id: 'libra',
             name: 'Libra',
-            stars: [[50, 92], [44, 97], [38, 94], [54, 96]],
-            lines: [[0, 1], [1, 2], [2, 3], [3, 0]]
+            stars: [[47.6, 97.2], [44, 93.6], [47.6, 90], [51.2, 93.6], [40.4, 93.6], [54.8, 93.6]],
+            lines: [[0, 1], [1, 2], [2, 3], [3, 0], [1, 4], [3, 5]]
         },
-        // Scorpius — inferior izquierda: el corazón (Antares) y la gran cola en J
-        // que termina en el doble aguijón (Shaula y Lesath)
+        // Scorpius (Escorpión) — ancla [6,88], escala 2
         {
             id: 'scorpius',
             name: 'Scorpius',
-            stars: [[24, 93], [19, 90], [25, 89], [28, 97], [31, 93], [21, 87], [16, 85], [12, 89], [8, 87], [5, 92], [6, 97], [11, 94]],
-            lines: [[3, 0], [0, 1], [3, 2], [3, 4], [0, 5], [5, 6], [6, 7], [7, 8], [8, 9], [9, 10], [7, 11]]
+            stars: [[6, 96], [10, 94], [14, 96], [10, 90], [10, 84], [14, 80], [18, 84], [16, 88]],
+            lines: [[0, 1], [2, 1], [1, 3], [3, 4], [4, 5], [5, 6], [6, 7]]
         },
-        // Sagittarius — izquierda: la tetera, con la tapa, el pico, el asa y el cuerpo
+        // Sagittarius (Sagitario) — ancla [7,60], escala 1.8
         {
             id: 'sagittarius',
             name: 'Sagittarius',
-            stars: [[16, 62], [13, 61], [10, 64], [7, 67], [5, 73], [9, 78], [16, 77], [19, 71]],
-            lines: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 0]]
+            stars: [[7, 63.6], [10.6, 67.2], [14.2, 67.2], [16, 63.6], [12.4, 60], [8.8, 60], [19.6, 65.4], [3.4, 61.8]],
+            lines: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 0], [2, 6], [0, 7]]
         },
-        // Capricornus — superior izquierda: el triángulo de la cabra (γ, α, β, δ)
+        // Capricornus (Capricornio) — ancla [6,36], escala 1.8
         {
             id: 'capricornus',
             name: 'Capricornus',
-            stars: [[9, 40], [15, 42], [12, 47], [6, 48], [18, 45]],
-            lines: [[0, 1], [1, 2], [2, 3], [1, 4]]
+            stars: [[6, 43.2], [9.6, 36], [16.8, 36], [20.4, 41.4], [13.2, 39.6]],
+            lines: [[0, 1], [1, 2], [2, 3], [0, 4], [4, 3]]
         },
-        // Pisces — superior izquierda: el círculo de los peces unido por la cuerda
-        // hasta Alrischa (α)
+        // Pisces (Piscis) — ancla [10,22], escala 1.8
         {
             id: 'pisces',
             name: 'Pisces',
-            stars: [[20, 15], [25, 17], [27, 21], [24, 26], [20, 25], [14, 26], [9, 29]],
-            lines: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 0], [4, 5], [5, 6]]
+            stars: [[10, 27.4], [6.4, 23.8], [10, 20.2], [17.2, 22], [20.8, 16.6], [24.4, 16.6], [22.6, 13]],
+            lines: [[0, 1], [1, 2], [2, 0], [2, 3], [3, 4], [4, 5], [5, 6], [6, 4]]
         }
     ];
 
