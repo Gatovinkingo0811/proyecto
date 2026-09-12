@@ -10,9 +10,14 @@
  *   x = RA/360·ancho, y = (90−Dec)/180·alto (ventana completa).
  * - Estilo: líneas semitransparentes rgba(255,255,255,0.3) y trazo fino;
  *   nodos principales con un sutil resplandor (shadowBlur).
- * - Zodíaco: solo se dibujan las 12 constelaciones de `zodiaco`.
+ * - Zodíaco: solo se dibujan las constelaciones de `zodiaco` (12 en total:
+ *   11 son las que orbitan en el halo + Acuario, la principal, SIEMPRE fija en
+ *   el centro → sin duplicados).
  * - Halo circular: cada figura se normaliza a su centroide y se traslada a un
- *   ángulo del anillo (reloj) alrededor del centro con zoom real (x3.5).
+ *   ángulo del anillo (reloj) alrededor del centro con zoom adaptativo (tope
+ *   de ~50% del paso del anillo para que no se crucen al rotar).
+ * - Estrella de Charlotte: anomalía que sigue a Géminis en su órbita; no es un
+ *   punto fijo. Solo aparece cuando el final invoca `.showCharlotte()`.
  * - Órbita: `globalAngle` (declarada fuera de la animación, nunca se reinicia)
  *   sube 0.001 por frame y se suma al ángulo de cada constelación; el bucle
  *   `animate()` corre con requestAnimationFrame de forma continua y termina
@@ -71,7 +76,8 @@
         links: [],
         el: null,
         rafId: null,
-        ready: false
+        ready: false,
+        showCharlotte: false
     };
 
     // Rotación global del halo. Se declara FUERA y POR ENCIMA de la función de
@@ -119,17 +125,28 @@
     /* Render                                                              */
     /* ------------------------------------------------------------------ */
 
-    // Empaqueta las 12 constelaciones del zodíaco en un anillo perfecto (halo)
-    // alrededor del centro, simulando un reloj. Cada figura:
+    // Constelación principal (Acuario): SIEMPRE FIJA en el centro, fuera del
+    // anillo. El halo gira con las otras 11 constelaciones del zodíaco, de modo
+    // que en total siempre hay 12 (11 en órbita + la central), sin duplicados.
+    const MAIN_ID = 'Aqr';
+
+    // Empaqueta las 11 constelaciones del zodíaco (todas menos la principal) en
+    // un anillo perfecto (halo) alrededor del centro, simulando un reloj. Cada
+    // figura:
     //   1) Se proyecta a píxeles (RA/Dec reales, con desenvuelto de ángulo).
     //   2) Se normaliza restando su propio centroide (lleva la forma a 0,0).
-    //   3) Se escala (zoom) para que se aprecie de cerca sin chocar.
+    //   3) Se escala (zoom) con un tope adaptativo para que ninguna figura
+    //      sobrepase ~la mitad del espacio del anillo: "no se cruzan" al girar.
     //   4) Se traslada a su punto ancla en el arco del halo.
     function buildHaloLayout(w, h) {
-        const zodiac = sky.constellations.filter((c) => zodiaco.includes(c.id));
+        const zodiac = sky.constellations.filter((c) => zodiaco.includes(c.id) && c.id !== MAIN_ID);
+        const count = zodiac.length;
         const centerX = w / 2;
         const centerY = h / 2;
         const radius = Math.min(w, h) * 0.4;
+        const maxScale = 2.2;
+        // Espacio angular (px) que separa dos constelaciones vecinas del anillo.
+        const arcStep = (2 * Math.PI * radius) / (count || 12);
 
         const layout = new Map();
 
@@ -145,15 +162,28 @@
             projLines.forEach((ln) => ln.forEach((p) => { cx += p.x; cy += p.y; n += 1; }));
             if (!n) return;
 
+            // Distancia máxima al centroide: marca el tamaño real de la figura.
+            let maxDist = 0;
+            projLines.forEach((ln) => ln.forEach((p) => {
+                const d = Math.hypot(p.x - (cx / n), p.y - (cy / n));
+                if (d > maxDist) maxDist = d;
+            }));
+            maxDist = Math.max(maxDist, 1);
+
             // Ángulo del reloj + rotación global (órbita continua).
-            const angle = ((index / 12) * Math.PI * 2) + globalAngle;
+            // Usa (count) repartos, no 12, porque son 11 las que orbitan.
+            const angle = ((index / count) * Math.PI * 2) + globalAngle;
             const targetX = centerX + Math.cos(angle) * radius;
             const targetY = centerY + Math.sin(angle) * radius;
 
-            // Normalización (agrupación en 0,0), zoom real (x3.5) y traslación:
-            // las coordenadas relativas de cada estrella se multiplican justo
-            // antes de llevarlas a su punto en el halo.
-            const scale = 3.5;
+            // Escala con tope anti-cruce: la figura ocupa como mucho el 50% del
+            // paso del anillo, y nunca pasa de maxScale (zoom legible real).
+            const fitScale = (arcStep * 0.5) / (maxDist * 2);
+            const scale = Math.min(maxScale, Math.max(0.5, fitScale));
+
+            // Normalización (agrupación en 0,0), zoom y traslación: las
+            // coordenadas relativas se multiplican justo antes de llevarlas a
+            // su punto en el halo.
             const packedLines = projLines.map((ln) =>
                 ln.map((p) => ({
                     x: targetX + (p.x - (cx / n)) * scale,
@@ -161,7 +191,13 @@
                 }))
             );
 
-            layout.set(constellation.id, { lines: packedLines, targetX: targetX, targetY: targetY, angle: angle });
+            layout.set(constellation.id, {
+                lines: packedLines,
+                targetX: targetX,
+                targetY: targetY,
+                angle: angle,
+                scale: scale
+            });
         });
 
         return layout;
@@ -308,6 +344,10 @@ function drawPackedConstellation(layout, ctx, highlight) {
     // Al partir de los puntos empaquetados de Géminis, sigue la normalización y
     // traslación del halo: se mueve con la figura sin romperse.
     function drawCharlotteAnomaly(geminiLayout, ctx, w, h) {
+        // Solo se muestra cuando el final lo pide (tras la pausa de lectura),
+        // nunca al instante ni fija: orbita con su constelación.
+        if (!sky.showCharlotte) return;
+
         const lines = geminiLayout && geminiLayout.lines;
         if (!lines || !lines.length) return;
 
@@ -550,6 +590,13 @@ function drawPackedConstellation(layout, ctx, highlight) {
         refresh();
     }
 
+    // Enciende la estrella de Charlotte junto a Géminis (anomalía del halo).
+    // El final la invoca tras la pausa de lectura: aparece, no al instante.
+    function showCharlotte() {
+        sky.showCharlotte = true;
+        refresh();
+    }
+
     function project(raDeg, decDeg) {
         return projectPoint(raDeg, decDeg, sky.w, sky.h);
     }
@@ -568,6 +615,7 @@ function drawPackedConstellation(layout, ctx, highlight) {
         unhighlight,
         setLink,
         clearLinks,
+        showCharlotte,
         project,
         getConstellation,
         isReady: () => sky.ready,

@@ -159,8 +159,9 @@
 
     // El cielo estelar real (todas las constelaciones con RA/Dec) se dibuja en
     // el <canvas id="celestial-map"> mediante celestial.js. En el final, el zoom
-    // out revela ese cielo y la estrella de ella se enciende junto a su constelación
-    // (Géminis), que alumbra y se conecta con dicha estrella vía setLink().
+    // out revela ese cielo: 11 constelaciones del zodíaco orbitan en el halo y
+    // la principal (Acuario) permanece fija en el centro. Al cierre, la estrella
+    // de Charlotte se enciende junto a Géminis (anomalía que sigue su órbita).
 
     // Los textos del final se escenifican en showFinale() por fases,
     // intercalados con el zoom out, la estrella misteriosa y la firma.
@@ -189,7 +190,6 @@
     const finaleOverlay = document.getElementById('finale-overlay');
     const finaleMessage = document.getElementById('finale-message');
     const finaleSign = document.querySelector('.finale-sign');
-    const mysteryStar = document.getElementById('mystery-star');
 
     // --- RESPUESTA HÁPTICA PARA MÓVIL ---
     function triggerHaptic(type = 'light') {
@@ -826,30 +826,11 @@
         }, delay);
     }
 
-    // Conecta la estrella de ella (elemento HTML fijo) con su constelación en el
-    // cielo real (canvas): Géminis se ilumina y una línea continua nace en una
-    // de sus cabezas (β Gem / Pólux) y llega hasta la estrella, sin cruzarla.
-    const GEMINI_POLLUX_RA = 113.6494;
-    const GEMINI_POLLUX_DEC = 31.8883;
-
-    // Coloca la estrella de ella junto a las cabezas de Géminis (coordenadas del
-    // mapa real proyectadas a la ventana).
-    function placeMysteryStarNearPollux() {
-        const herPos = CelestialSky.project(GEMINI_POLLUX_RA + 4.5, GEMINI_POLLUX_DEC + 5.5);
-        mysteryStar.style.left = herPos.x + 'px';
-        mysteryStar.style.top = herPos.y + 'px';
-    }
-
+    // Conecta la estrella de ella: se enciende la anomalía de Charlotte en el
+    // canvas, que orbita junto a Géminis (el halo la arrastra), nunca fija.
     function connectMysteryStar() {
         if (!window.CelestialSky) return;
-        placeMysteryStarNearPollux();
-        CelestialSky.highlight('Gem');
-        const from = CelestialSky.project(GEMINI_POLLUX_RA, GEMINI_POLLUX_DEC);
-        const rect = mysteryStar.getBoundingClientRect();
-        CelestialSky.setLink(
-            { x: from.x, y: from.y },
-            { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
-        );
+        CelestialSky.showCharlotte();
     }
 
 // Pantalla de cierre: una pequeña historia final escenificada.
@@ -917,10 +898,9 @@
         }, fadeTime);
 
         // La estrella de Charlotte en Géminis aparece al terminar esos 30s,
-        // nunca al instante. Su constelación se alumbra y se conecta con ella.
+        // nunca al instante: gira con su constelación en el halo (no es fija).
         const starTime = fadeTime + 2500;
         setTimeout(() => {
-            mysteryStar.classList.add('visible');
             triggerHaptic('light');
             playMysteryNote();
             connectMysteryStar();
