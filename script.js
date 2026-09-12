@@ -1240,6 +1240,18 @@
         updateProgress();
     }
 
+    // Atajo temporal para probar el final sin completar las 14 estrellas
+    const goFinalBtn = document.getElementById('go-final');
+    if (goFinalBtn) {
+        goFinalBtn.addEventListener('click', () => {
+            introOverlay.style.display = 'none';
+            isModalOpen = false;
+            modalOverlay.classList.remove('open');
+            initAudio();
+            showFinale();
+        });
+    }
+
     if (document.readyState === 'loading') {
         window.addEventListener('DOMContentLoaded', startApp);
     } else {
