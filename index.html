@@ -40,10 +40,11 @@
     <!-- Hint text -->
     <div id="hint">toca la estrella que brilla</div>
 
-    <!-- Intro overlay -->
+    <!-- Intro overlay (entrada escenificada, el cielo se ve a través) -->
     <div id="intro-overlay" role="dialog" aria-label="Introducción">
         <div class="intro-content">
-            <p class="intro-subtitle">Una constelación para ti</p>
+            <p class="intro-staged" id="intro-line-1">Hay algo que quiero mostrarte…</p>
+            <p class="intro-staged" id="intro-line-2">pero tendrás que descubrirlo estrella por estrella.</p>
             <h1 class="intro-title">Charlotte</h1>
             <div class="intro-line"></div>
             <p class="intro-hint">toca para comenzar</p>
@@ -53,6 +54,10 @@
     <!-- Message modal -->
     <div id="modal-overlay" role="dialog" aria-label="Mensaje de estrella">
         <div id="modal">
+            <div class="modal-header">
+                <h2 id="modal-star-name"></h2>
+                <span id="modal-star-count"></span>
+            </div>
             <div id="modal-content">
                 <p id="modal-message"></p>
             </div>
@@ -62,11 +67,14 @@
         </div>
     </div>
 
+    <!-- Estrella misteriosa del final (elemento narrativo independiente) -->
+    <div id="mystery-star" aria-hidden="true"></div>
+
     <!-- Finale overlay -->
     <div id="finale-overlay" role="dialog" aria-label="Mensaje final">
         <div id="finale-content">
-            <div id="finale-message"></div>
-            <p class="finale-sign">— Luis 💜</p>
+            <div id="finale-message" aria-live="polite"></div>
+            <p class="finale-sign">Luis</p>
         </div>
     </div>
 

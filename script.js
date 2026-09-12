@@ -9,6 +9,8 @@
 
     // 14 Estrellas principales de la constelación de Acuario
     // Coordenadas calibradas con respecto a la figura tradicional de Acuario
+    // Cada estrella guarda un pequeño concepto (title) y una frase breve (message).
+    // La progresión emocional avanza desde la curiosidad inicial hasta el aprecio profundo.
     const STARS = [
         {
             id: 1,
@@ -16,7 +18,8 @@
             bayer: "ε Aqr",
             x: 16,
             y: 54,
-            message: "Hay personas que llegan a tu vida y desde el primer momento sabes que hay algo diferente. No necesité mucho tiempo para darme cuenta de que tú eras una de esas personas. Desde que te conocí, algo cambió."
+            title: "El comienzo",
+            message: "Hay personas que se sienten especiales desde el primer momento. Tú fuiste una de ellas para mí."
         },
         {
             id: 2,
@@ -24,7 +27,8 @@
             bayer: "β Aqr",
             x: 34,
             y: 42,
-            message: "Siempre hubo algo en tu sonrisa que me llamó la atención. No sé exactamente cómo explicarlo, pero tiene esa forma de hacer que todo se sienta un poco más tranquilo. Como si por un momento las cosas simplemente estuvieran bien."
+            title: "Tu sonrisa",
+            message: "Hay algo en tu sonrisa que lo hace todo más tranquilo, como si el mundo se tomara un respiro."
         },
         {
             id: 3,
@@ -32,7 +36,8 @@
             bayer: "α Aqr",
             x: 48,
             y: 26,
-            message: "Tus ojos tienen algo especial. No hablo solamente de cómo se ven, sino de lo que cuentan. Siempre sentí que detrás de ellos había una historia que merecía ser escuchada, y me alegra mucho haber podido conocer partes de esa historia."
+            title: "Tu manera de mirar",
+            message: "Siempre sentí que detrás de tus ojos hay una historia bonita, y me gusta conocerla poco a poco."
         },
         {
             id: 4,
@@ -40,7 +45,8 @@
             bayer: "π Aqr",
             x: 58,
             y: 17,
-            message: "Más allá de cualquier detalle físico, lo que más valoro de ti es la forma en que me tratas. Nunca tuve que adivinar si estaba bien ser yo mismo contigo. Me lo hiciste sentir desde el principio, y eso es algo que no olvido."
+            title: "Ser yo mismo",
+            message: "Contigo nunca tuve que adivinar si estaba bien ser yo mismo. Lo sentí natural desde el principio."
         },
         {
             id: 5,
@@ -48,7 +54,8 @@
             bayer: "γ Aqr",
             x: 58,
             y: 31,
-            message: "Los momentos que más recuerdo no son los grandes ni los complicados. Son los sencillos. Como cuando jugábamos en el salón sin pensar en nada más. Esos momentos tenían la capacidad de hacer que todo lo demás dejara de importar por un rato."
+            title: "Los momentos simples",
+            message: "Los recuerdos que más guardo son los días sencillos, sin planes grandes, donde solo éramos nosotros."
         },
         {
             id: 6,
@@ -56,7 +63,8 @@
             bayer: "ζ Aqr",
             x: 65,
             y: 26,
-            message: "Me gusta que puedo hablar contigo y sentirme seguro. Esa confianza no es algo que le doy a cualquier persona, pero contigo siempre se sintió natural. No tuve que forzar nada, simplemente pasó."
+            title: "La confianza",
+            message: "Contigo la confianza es fácil. Nunca tuve que pensarla dos veces."
         },
         {
             id: 7,
@@ -64,7 +72,8 @@
             bayer: "η Aqr",
             x: 71,
             y: 29,
-            message: "Aprendí a valorar muchísimo la forma en que me escuchas. Contigo pude abrirme y contar cosas que normalmente me cuesta expresar. No porque me las pidieras, sino porque me sentía lo suficientemente cómodo para hacerlo."
+            title: "Cómo me escuchas",
+            message: "Me encanta cómo me escuchas. Contigo pude decir cosas que normalmente me cuestan."
         },
         {
             id: 8,
@@ -72,7 +81,8 @@
             bayer: "θ Aqr",
             x: 52,
             y: 53,
-            message: "Me importa genuinamente cómo estás. Y valoro mucho que tú también hayas confiado en mí para contarme cosas. Eso no es algo que tomo a la ligera. Cuando me compartes algo, lo guardo con cuidado."
+            title: "Lo que compartimos",
+            message: "Cuando me cuentas algo, lo guardo con cuidado. Me importa de verdad cómo estás."
         },
         {
             id: 9,
@@ -80,7 +90,8 @@
             bayer: "σ Aqr",
             x: 57,
             y: 63,
-            message: "Conocerte me hizo entender que el cariño puede sentirse seguro. Que no todo tiene que ser complicado. Que una persona puede significar muchísimo simplemente por estar ahí de verdad, sin necesidad de grandes gestos."
+            title: "Un cariño seguro",
+            message: "Contigo aprendí que el cariño puede sentirse ligero y seguro, sin necesidad de grandes gestos."
         },
         {
             id: 10,
@@ -88,7 +99,8 @@
             bayer: "δ Aqr",
             x: 72,
             y: 74,
-            message: "Te admiro por quién eres. No por lo que haces o por lo que logras, sino por la persona que eres cuando nadie está prestando atención. Esa versión de ti es la que más me importa."
+            title: "Por quién eres",
+            message: "Admiro a la persona que eres cuando nadie te está mirando. Esa eres tú de verdad."
         },
         {
             id: 11,
@@ -96,7 +108,8 @@
             bayer: "λ Aqr",
             x: 76,
             y: 48,
-            message: "Me alegra verte crecer y avanzar. Quiero que te vaya bien en tus estudios, en tus proyectos, en todo lo que te propongas. Y quiero que sepas que siempre voy a estar genuinamente contento cuando las cosas te salgan bien."
+            title: "Verte crecer",
+            message: "Me alegra de verdad verte crecer y perseguir lo tuyo. Cada logro tuyo también es mío para celebrar."
         },
         {
             id: 12,
@@ -104,7 +117,8 @@
             bayer: "τ² Aqr",
             x: 70,
             y: 83,
-            message: "Quiero que seas feliz. No de la forma en que la gente lo dice por compromiso, sino de verdad. Tu felicidad me importa independientemente de cualquier otra cosa. Simplemente porque te quiero bien."
+            title: "Tu felicidad",
+            message: "Quiero que seas feliz de verdad, no por compromiso. Tu bien me importa, sin condiciones."
         },
         {
             id: 13,
@@ -112,7 +126,8 @@
             bayer: "c² Aqr",
             x: 82,
             y: 89,
-            message: "Tienes un lugar muy especial en mi vida. No porque yo lo haya decidido estratégicamente, sino porque así se fue construyendo con el tiempo, con cada conversación, con cada momento compartido."
+            title: "Tu lugar",
+            message: "Tienes un lugar en mi vida que se construyó solo, con cada conversación y cada momento."
         },
         {
             id: 14,
@@ -120,7 +135,8 @@
             bayer: "φ Aqr",
             x: 87,
             y: 42,
-            message: "Mi cariño por ti es sincero. No quiero que sea una obligación, ni que sientas que tienes que hacer algo con él. Simplemente quiero que lo sepas, porque creo que las personas merecen saber cuándo alguien las quiere de verdad."
+            title: "Lo que siento",
+            message: "Mi cariño por ti es sincero y no pide nada a cambio. Solo quería que lo supieras."
         }
     ];
 
@@ -224,13 +240,8 @@
         }
     ];
 
-    const FINALE_PARAGRAPHS = [
-        "Todas estas estrellas son solamente pequeñas partes de todo lo que pienso cuando pienso en ti.",
-        "No sé si existe una forma perfecta de explicar lo mucho que significas para mí, pero quería intentar hacerlo de una manera que fuera solamente nuestra.",
-        "Gracias por todos esos momentos, por escucharme, por confiar en mí y simplemente por ser tú.",
-        "Me alegra muchísimo haberte conocido, Charlotte.",
-        "Te quiero y te aprecio muchísimo."
-    ];
+    // Los textos del final se escenifican en showFinale() por fases,
+    // intercalados con el zoom out, la estrella misteriosa y la firma.
 
     // Estado
     let discoveredStars = new Set();
@@ -239,6 +250,7 @@
     let currentModalStarId = null;
     let audioCtx = null;
     let lastInteractionTime = 0;
+    let finaleStarted = false;
 
     // Elementos del DOM
     const starsContainer = document.getElementById('stars-container');
@@ -248,11 +260,14 @@
     const hintElement = document.getElementById('hint');
     const introOverlay = document.getElementById('intro-overlay');
     const modalOverlay = document.getElementById('modal-overlay');
+    const modalStarName = document.getElementById('modal-star-name');
+    const modalStarCount = document.getElementById('modal-star-count');
     const modalMessage = document.getElementById('modal-message');
     const modalCloseBtn = document.getElementById('modal-close');
     const finaleOverlay = document.getElementById('finale-overlay');
     const finaleMessage = document.getElementById('finale-message');
     const finaleSign = document.querySelector('.finale-sign');
+    const mysteryStar = document.getElementById('mystery-star');
 
     // --- RESPUESTA HÁPTICA PARA MÓVIL ---
     function triggerHaptic(type = 'light') {
@@ -471,6 +486,29 @@
                 gain.connect(audioCtx.destination);
                 osc.start(chordTime);
                 osc.stop(chordTime + 3.6);
+            });
+        } catch (e) {}
+    }
+
+    // Pequeño destello sonoro al aparecer la estrella misteriosa del final
+    function playMysteryNote() {
+        if (!audioCtx) return;
+        try {
+            const now = audioCtx.currentTime;
+            [523.25, 659.25, 783.99].forEach((f, idx) => { // C5 -> E5 -> G5
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(f, now + idx * 0.16);
+
+                gain.gain.setValueAtTime(0, now + idx * 0.16);
+                gain.gain.linearRampToValueAtTime(0.07, now + idx * 0.16 + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.16 + 1.1);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now + idx * 0.16);
+                osc.stop(now + idx * 0.16 + 1.2);
             });
         } catch (e) {}
     }
@@ -820,7 +858,8 @@
     // Interacción al presionar una estrella
     function onStarClick(star) {
         const now = Date.now();
-        if (now - lastInteractionTime < 280) return;
+        if (now - lastInteractionTime < 420) return;
+        if (finaleStarted) return;
         lastInteractionTime = now;
 
         initAudio();
@@ -831,9 +870,9 @@
         if (!isDiscovered && !isActive) {
             triggerHaptic('light');
             playLockedTone();
-            hintElement.textContent = "Sigue el camino... toca la estrella que brilla";
+            hintElement.textContent = "sigue el camino... toca la estrella que brilla";
             setTimeout(() => {
-                hintElement.textContent = "toca la estrella que brilla";
+                hintElement.textContent = defaultHint();
             }, 2500);
             return;
         }
@@ -841,12 +880,37 @@
         triggerHaptic('light');
         playStarTone(star.id);
 
+        // Reacción visual: destello + anillo de luz expandiéndose sobre la estrella
+        const node = document.getElementById(`star-node-${star.id}`);
+        if (node) {
+            node.classList.remove('touched');
+            void node.offsetWidth; // reinicia la animación
+            node.classList.add('touched');
+            setTimeout(() => node.classList.remove('touched'), 800);
+        }
+
+        // La línea que conecta esta estrella con las ya descubiertas se enciende al instante
+        CONSTELLATION_LINES.forEach(([idA, idB]) => {
+            const connectsDiscovered = (idA === star.id && discoveredStars.has(idB)) ||
+                                       (idB === star.id && discoveredStars.has(idA));
+            if (connectsDiscovered) {
+                const line = document.getElementById(`line-${idA}-${idB}`);
+                if (line) line.classList.add('active');
+            }
+        });
+
         currentModalStarId = star.id;
-        openModal(star);
+        setTimeout(() => openModal(star), 400);
+    }
+
+    function defaultHint() {
+        return "toca la estrella que brilla";
     }
 
     function openModal(star) {
         isModalOpen = true;
+        modalStarName.textContent = star.title;
+        modalStarCount.textContent = `${star.id} · 14`;
         modalMessage.textContent = star.message;
         modalMessage.classList.remove('revealed');
 
@@ -891,73 +955,80 @@
         const total = STARS.length;
 
         if (count === total) {
-            hintElement.textContent = "La constelación de Acuario está completa ✨";
+            hintElement.textContent = "La constelación de Acuario está completa";
         } else if (count > 0) {
-            hintElement.textContent = "toca la siguiente estrella que brilla";
+            hintElement.textContent = defaultHint();
         }
     }
 
-    // Pantalla de cierre y mensaje final
+    // Ayuda para añadir párrafos al final con su progresión de aparición
+    function addFinaleParagraph(text, delay) {
+        setTimeout(() => {
+            if (!finaleMessage) return;
+            const p = document.createElement('p');
+            p.textContent = text;
+            finaleMessage.appendChild(p);
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => p.classList.add('show-paragraph'));
+            });
+        }, delay);
+    }
+
+    // Pantalla de cierre: una pequeña historia final escenificada.
+    // 1) Acuario queda completa y respira durante un instante.
+    // 2) El cielo se aleja y el zodíaco se revela; el texto flota sobre él.
+    // 3) Acuario se ilumina por encima de las demás.
+    // 4) Nace una estrella misteriosa fuera de todo mapa.
+    // 5) La firma cierra la experiencia.
     function showFinale() {
+        finaleStarted = true;
         document.body.classList.add('constellation-complete');
         triggerHaptic('success');
         playFinaleMelody();
 
-        // El cielo se aleja: zoom out de Acuario y revelación del zodíaco completo
-        universeContainer.classList.add('zoom-out');
-        zodiacBackground.classList.add('visible');
-        renderZodiacBackground();
-        meteorShowerActive = true;
-        showerIntensity = 2;
+        // Pequeña pausa con Acuario completa brillando antes del zoom
+        setTimeout(() => {
+            universeContainer.classList.add('zoom-out');
+            zodiacBackground.classList.add('visible');
+            renderZodiacBackground();
+            meteorShowerActive = true;
+            showerIntensity = 2;
+            finaleOverlay.classList.add('show');
+        }, 1600);
 
-        finaleMessage.innerHTML = '';
-        FINALE_PARAGRAPHS.forEach((text, i) => {
-            const p = document.createElement('p');
-            p.textContent = text;
-            finaleMessage.appendChild(p);
-
-            setTimeout(() => {
-                p.classList.add('show-paragraph');
-            }, 600 + i * 800);
+        // Primer texto flotando sobre el cielo completo
+        const texts = [
+            "Todas estas estrellas son parte del mismo cielo.",
+            "Pero había una que quería enseñarte primero.",
+            "Y quizá ahora entiendas por qué."
+        ];
+        const textsStart = 4200;
+        const textGap = 3400;
+        texts.forEach((text, i) => {
+            addFinaleParagraph(text, textsStart + i * textGap);
         });
 
+        // Acuario irradia por encima del resto
+        const radiantTime = textsStart + texts.length * textGap + 400;
+        setTimeout(() => universeContainer.classList.add('radiant'), radiantTime);
+
+        // Aparece la estrella misteriosa, separada de todo
+        const mysteryTime = radiantTime + 2800;
+        setTimeout(() => {
+            mysteryStar.classList.add('visible');
+            triggerHaptic('light');
+            playMysteryNote();
+        }, mysteryTime);
+
+        // "Esta no estaba en el mapa... Esta la puse yo."
+        addFinaleParagraph("Esta no estaba en el mapa.", mysteryTime + 1700);
+        addFinaleParagraph("Esta la puse yo.", mysteryTime + 5000);
+
+        // La firma cierra la experiencia
+        const signTime = mysteryTime + 7200;
         setTimeout(() => {
             finaleSign.classList.add('show-sign');
-        }, 600 + FINALE_PARAGRAPHS.length * 800);
-
-        let actions = document.querySelector('.finale-actions');
-        if (!actions) {
-            actions = document.createElement('div');
-            actions.className = 'finale-actions';
-            actions.innerHTML = `
-                <button class="btn-view-constellation" type="button">
-                    Ver constelación completa
-                </button>
-            `;
-            document.getElementById('finale-content').appendChild(actions);
-
-            const btn = actions.querySelector('.btn-view-constellation');
-            const closeFinaleView = (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                triggerHaptic('light');
-
-                // El cielo completo queda frente a Charlotte: todas las constelaciones
-                // en el mismo plano, con Acuario destacando por encima de todas
-                universeContainer.classList.add('radiant');
-                showerIntensity = 1;
-                finaleOverlay.classList.remove('show');
-            };
-
-            btn.addEventListener('click', closeFinaleView);
-            btn.addEventListener('touchend', closeFinaleView, { passive: false });
-        }
-
-        setTimeout(() => {
-            actions.classList.add('show-actions');
-        }, 800 + FINALE_PARAGRAPHS.length * 800);
-
-        finaleOverlay.classList.add('show');
+        }, signTime);
     }
 
 
@@ -1000,23 +1071,6 @@
             closeModal();
         }
     });
-
-    // Botón para alternar la silueta mística en modo contemplación
-    const toggleSilhouetteBtn = document.getElementById('btn-toggle-silhouette');
-    if (toggleSilhouetteBtn) {
-        const onToggleSilhouette = (e) => {
-            if (e) {
-                e.preventDefault();
-                e.stopPropagation();
-            }
-            triggerHaptic('light');
-            playStarTone(10);
-            const isHidden = document.body.classList.toggle('silhouette-hidden');
-            toggleSilhouetteBtn.querySelector('span').textContent = isHidden ? '✦ Ver silueta' : '✦ Ocultar silueta';
-        };
-        toggleSilhouetteBtn.addEventListener('click', onToggleSilhouette);
-        toggleSilhouetteBtn.addEventListener('touchend', onToggleSilhouette, { passive: false });
-    }
 
     // Iniciar aplicación
     function startApp() {
