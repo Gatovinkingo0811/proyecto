@@ -149,6 +149,7 @@
         { x: 0.38, y: 0.90 }, // abajo centro izq
         { x: 0.62, y: 0.90 }  // abajo centro der
     ];
+    const ORBIT_RADIUS_FACTOR = 0.30; // 30% of the smaller canvas dimension for orbital radius
 
     // Coloca cada constelación en su caja (zona fija) y la hace girar sobre su
     // PROPIO centroide (transform-origin center center), sin órbita compartida:
@@ -181,29 +182,24 @@
             maxDist = Math.max(maxDist, 1);
 
             // Su caja (zona fija de la pantalla) + ancla dentro de ella.
-            const box = BOX_ANCHORS[index % BOX_ANCHORS.length];
-            const anchorX = box.x * w;
-            const anchorY = box.y * h;
+            // Compute orbital position for this constellation
+            const orbitRadius = ORBIT_RADIUS_FACTOR * Math.min(w, h) / 2;
+            const angle = globalAngle + index * (2 * Math.PI / zodiac.length);
+            const centerX = w / 2 + orbitRadius * Math.cos(angle);
+            const centerY = h / 2 + orbitRadius * Math.sin(angle);
 
-            // Escala para caber en la caja: la figura entera ocupa como mucho
-            // ~22% de la dimensión menor de la pantalla → no se tocan entre cajas.
+            // Escala para que la constelación quepa dentro del espacio asignado
             const maxExt = Math.min(w, h) * 0.22;
             const scale = Math.min(2.6, Math.max(0.5, maxExt / (maxDist * 2)));
 
-            // Rotación SOLO sobre su propio eje (transform-origin center center):
-            // cada constelación gira en su caja sin salirse de su zona. No hay
-            // ángulo global compartido, por eso no se amontonan.
-            const angle = globalAngle + index * 0.05;
-            const cos = Math.cos(angle);
-            const sin = Math.sin(angle);
-
+            // Posiciona los puntos centrados y escalados alrededor del centro orbital
             const packedLines = projLines.map((ln) =>
                 ln.map((p) => {
                     const localX = (p.x - (cx / n)) * scale;
                     const localY = (p.y - (cy / n)) * scale;
                     return {
-                        x: anchorX + (localX * cos - localY * sin),
-                        y: anchorY + (localX * sin + localY * cos)
+                        x: centerX + localX,
+                        y: centerY + localY
                     };
                 })
             );
