@@ -178,12 +178,39 @@
             stars: [[72, 22], [76, 18], [82, 22], [78, 14], [86, 8], [76, 12]],
             lines: [[0, 1], [2, 1], [1, 3], [3, 4], [3, 5]]
         },
-        // Gemini — ancla [84,30], escala 2
+        // Gemini — ancla [78.5,26.5], escala 0.15 (los gemelos con brazos y manos)
         {
             id: 'gemini',
             name: 'Gemini',
-            stars: [[86, 40], [86, 36], [84, 30], [88, 30], [92, 40], [92, 36], [90, 30], [94, 30]],
-            lines: [[0, 1], [1, 2], [1, 3], [4, 5], [5, 6], [5, 7], [0, 4], [1, 5]]
+            stars: [
+                [83.0, 38.5],   // Cabeza_Castor
+                [86.75, 40.0],  // Cabeza_Polux
+                [80.0, 34.0],   // Brazo_Castor
+                [83.75, 35.5],  // Pecho_Castor
+                [86.0, 36.25],  // Pecho_Polux
+                [85.25, 31.0],  // Cadera_Castor
+                [84.5, 28.0],   // Pie_Ext_Castor
+                [87.5, 28.75],  // Pie_Int_Castor
+                [89.75, 34.0],  // Codo_Polux
+                [92.0, 33.25],  // Mano_Alta_Polux
+                [90.5, 31.75],  // Mano_Baja_Polux
+                [88.25, 31.75], // Cadera_Polux
+                [89.75, 28.0]   // Pie_Polux
+            ],
+            lines: [
+                [0, 3],  // Cabeza_Castor – Pecho_Castor
+                [2, 3],  // Brazo_Castor – Pecho_Castor
+                [1, 4],  // Cabeza_Polux – Pecho_Polux
+                [3, 4],  // Pecho_Castor – Pecho_Polux
+                [3, 5],  // Pecho_Castor – Cadera_Castor
+                [5, 6],  // Cadera_Castor – Pie_Ext_Castor
+                [5, 7],  // Cadera_Castor – Pie_Int_Castor
+                [4, 11], // Pecho_Polux – Cadera_Polux
+                [11, 12],// Cadera_Polux – Pie_Polux
+                [4, 8],  // Pecho_Polux – Codo_Polux
+                [8, 9],  // Codo_Polux – Mano_Alta_Polux
+                [8, 10]  // Codo_Polux – Mano_Baja_Polux
+            ]
         },
         // Cancer — ancla [88,62], escala 2.5
         {
