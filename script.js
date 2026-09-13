@@ -293,7 +293,7 @@
         }
 
         if (phase === 'dawn' || phase === 'approach' || phase === 'blackhole' || phase === 'void' || phase === 'birth' || phase === 'done') {
-            console.debug('[CINEMA] onCinemaPhase=' + phase + ' t=' + t.toFixed(2) + ' cinema.active=' + cinema.active);
+            console.debug('[CINEMA] onCinemaPhase=' + phase + ' cinema.active=' + cinema.active + ' conf.hole=' + (cinema.conf ? cinema.conf.hole : '?'));
         }
 
         if (phase === 'hold' || phase === 'void' || phase === 'dawn') {
