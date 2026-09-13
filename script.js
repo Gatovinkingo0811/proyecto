@@ -501,14 +501,24 @@
         const isMobile = width < 768;
         const halo = makeHaloSprite();
 
-        // Capas de profundidad: las más lejanas derivan más lentas.
+        // Capas de profundidad: lejanas (deriva casi nula, casi quietas), medias
+        // (deriva ligera) y cercanas (ligera deriva, halos y brillos). Tamaño,
+        // opacidad, parpadeo y halos dependen de la capa (no del azar global):
+        // el cielo gana variedad y profundidad sin competir con las
+        // constelaciones.
         const LAYERS = [
-            { drift: 0.012 },
-            { drift: 0.030 },
-            { drift: 0.070 }
+            { drift: 0.006, key: 'far' },
+            { drift: 0.028, key: 'mid' },
+            { drift: 0.075, key: 'near' }
         ];
 
-        // Densidad adaptativa al área y al dispositivo (PC ~100-180, móvil ~60-120).
+        function layerFor(slot) {
+            if (slot < 45) return LAYERS[0];   // lejana: más numerosa
+            if (slot < 85) return LAYERS[1];   // media
+            return LAYERS[2];                   // cercana: pocas, con personalidad
+        }
+
+        // Densidad adaptativa al área y al dispositivo (PC ~110-180, móvil ~60-120).
         function buildStars() {
             const stars = [];
             let count = Math.floor((width * height) / 9500);
@@ -517,17 +527,33 @@
                 : Math.min(180, Math.max(110, count));
 
             for (let i = 0; i < count; i++) {
-                const staticStar = Math.random() < 0.25; // ~1/4 permanece casi inmóvil
+                const layer = layerFor(i % 100);
+                const far = layer.key === 'far';
+                const mid = layer.key === 'mid';
+                const near = layer.key === 'near';
+
                 stars.push({
                     x: Math.random() * width,
                     y: Math.random() * height,
-                    radius: Math.random() * 1.3 + 0.3,
-                    baseAlpha: Math.random() * 0.5 + 0.12,
-                    twinkle: staticStar ? 0 : (Math.random() * 0.028 + 0.006),
-                    amplitude: Math.random() * 0.22 + 0.07,
+                    layer,
+                    radius: far
+                        ? Math.random() * 0.4 + 0.18
+                        : (mid ? Math.random() * 0.5 + 0.5 : Math.random() * 0.7 + 0.9),
+                    baseAlpha: far
+                        ? Math.random() * 0.14 + 0.06
+                        : (mid ? Math.random() * 0.26 + 0.15 : Math.random() * 0.3 + 0.28),
+                    // El parpadeo nunca es general: ligero en la capa media, apenas
+                    // en la cercana, y nada en la lejana ("no todas parpadean").
+                    twinkle: far
+                        ? 0
+                        : (mid
+                            ? (Math.random() < 0.5 ? Math.random() * 0.022 + 0.005 : 0)
+                            : (Math.random() < 0.3 ? Math.random() * 0.018 + 0.004 : 0)),
+                    amplitude: Math.random() * 0.16 + 0.05,
                     phase: Math.random() * Math.PI * 2,
-                    layer: LAYERS[i % LAYERS.length],
-                    halo: Math.random() < 0.06 // halo tenue en ~6%
+                    halo: near
+                        ? Math.random() < 0.35
+                        : (mid ? Math.random() < 0.06 : 0)
                 });
             }
             return stars;
@@ -535,10 +561,30 @@
 
         let backgroundStars = buildStars();
         let shootingStars = [];
-        let spawnTick = 0;
         let lastMeteorSpawn = 0;
+        let lastOccasionalMeteor = performance.now() + 4000;
         let lastTime = performance.now();
         let rafId = null;
+
+        // Polvo estelar: motas muy tenues y pocas, con deriva lentísima. Aportan
+        // profundidad sin que se note el efecto artificial al desactivarse.
+        let dustParticles = [];
+        function buildDust() {
+            dustParticles = [];
+            const count = isMobile ? 10 : 18;
+            for (let i = 0; i < count; i++) {
+                dustParticles.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    vx: (Math.random() - 0.5) * 0.22,
+                    vy: (Math.random() - 0.5) * 0.12,
+                    r: Math.random() * 0.6 + 0.35,
+                    a: Math.random() * 0.06 + 0.03,
+                    phase: Math.random() * Math.PI * 2
+                });
+            }
+        }
+        buildDust();
 
         function spawnShootingStar() {
             shootingStars.push({
@@ -553,15 +599,23 @@
             });
         }
 
-        function addShootingStar() {
+        // Meteoros: raros fuera del final y discretos durante él. Nunca una
+        // lluvia constante (la estrella especial SIEMPRE es lo más importante
+        // del cielo, por encima de cualquier meteoro).
+        function manageMeteors(now) {
             if (prefersReducedMotion) return;
             if (meteorShowerActive) {
-                const burst = showerIntensity >= 2 ? 3 : 1;
-                for (let i = 0; i < burst && shootingStars.length < (showerIntensity >= 2 ? 26 : 10); i++) {
-                    spawnShootingStar();
+                const cadence = showerIntensity >= 2 ? 1000 : 1700;
+                if (now - lastMeteorSpawn >= cadence && shootingStars.length < 8) {
+                    const burst = showerIntensity >= 2 ? 2 : 1;
+                    for (let i = 0; i < burst; i++) spawnShootingStar();
+                    lastMeteorSpawn = now;
+                    lastOccasionalMeteor = now;
                 }
-            } else if (Math.random() < 0.3 && shootingStars.length < 2) {
+            } else if (shootingStars.length < 1 &&
+                       now - lastOccasionalMeteor > 6000 + Math.random() * 5000) {
                 spawnShootingStar();
+                lastOccasionalMeteor = now;
             }
         }
 
@@ -600,6 +654,27 @@
             }
             ctx.globalAlpha = 1;
 
+            // Polvo estelar: motas muy tenues con deriva lentísima (profundidad
+            // atmosférica sin que se note el efecto). Se omite con movimiento
+            // reducido.
+            if (!prefersReducedMotion) {
+                for (let i = 0; i < dustParticles.length; i++) {
+                    const d = dustParticles[i];
+                    d.x += d.vx;
+                    d.y += d.vy;
+                    if (d.x < -2) d.x = width + 2;
+                    if (d.x > width + 2) d.x = -2;
+                    if (d.y < -2) d.y = height + 2;
+                    if (d.y > height + 2) d.y = -2;
+                    ctx.globalAlpha = d.a * (0.7 + 0.3 * Math.sin((now + d.phase) * 0.001));
+                    ctx.fillStyle = 'rgba(200, 216, 255, 1)';
+                    ctx.beginPath();
+                    ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+            }
+
             for (let i = shootingStars.length - 1; i >= 0; i--) {
                 const ss = shootingStars[i];
                 ss.x += ss.speed * ss.dx;
@@ -632,15 +707,9 @@
                 }
             }
 
-            // Lluvia de meteoros (solo en el final) o destellos ocasionales.
-            if (meteorShowerActive) {
-                if (now - lastMeteorSpawn > (showerIntensity >= 2 ? 220 : 650)) {
-                    addShootingStar();
-                    lastMeteorSpawn = now;
-                }
-            } else if (!spawnTick && !prefersReducedMotion) {
-                spawnTick = window.setInterval(addShootingStar, 5500);
-            }
+            // Meteoros ocasionales (fuera del final) o un poco más presentes (final),
+            // siempre discretos y por debajo de la estrella especial.
+            manageMeteors(now);
 
             if (prefersReducedMotion || document.hidden) {
                 rafId = null;
@@ -678,6 +747,7 @@
             width = canvas.width = window.innerWidth;
             height = canvas.height = window.innerHeight;
             backgroundStars = buildStars();
+            buildDust();
             renderConstellation();
             if (window.CelestialSky) CelestialSky.resize();
             if (!prefersReducedMotion && !rafId) startRender();

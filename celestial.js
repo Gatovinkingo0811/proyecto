@@ -48,9 +48,12 @@
  *       4) INTEGRACIÓN: al alcanzarlo se fusiona (destello sutil) y, desde ese
  *          instante, se coloca en cada frame en la posición orbital actual del
  *          nodo, conservando su color especial y sin coordenadas absolutas.
- *     La duración total es cinematográfica (~25s en escritorio, vuelo lento y
- *     desahogado) y se adapta a móvil; Acuario queda visualmente con 13
- *     estrellas (la nº14 es la viajera).
+ *     La duración total es cinematográfica (~29-30s en escritorio, salida
+ *     ~2-3s, dos vueltas ~16-20s, acercamiento ~6-8s; tiempo real con
+ *     performance.now(), independiente del FPS) y se adapta a pantalla;
+ *     Acuario queda visualmente con 13 estrellas (la nº14 es la viajera).
+ *     Con prefers-reduced-motion el viaje se conserva como una travesía real y
+ *     calmada (~12s), nunca un parpadeo de menos de un segundo.
  *
  * Accesibilidad: con prefers-reduced-motion la trayectoria se resuelve casi
  * instantánea manteniendo el estado narrativo final (órbita y viaje cortos);
@@ -332,18 +335,41 @@
         });
         ctx.restore();
 
-        // Estrellas reales de la figura.
+        // Estrellas reales de la figura. Si la viajera pasa cerca, ESA estrella
+        // concreta destella un momento (nunca toda la constelación, ni mueve su
+        // posición ni altera su geometría).
         ctx.save();
         ctx.fillStyle = STAR_COLOR;
         ctx.shadowColor = 'rgba(210, 230, 255, 0.85)';
         ctx.shadowBlur = 8;
 
-        entry.stars.forEach((p) => {
+        entry.stars.forEach((p, idx) => {
+            const glow = sparkleGlow(entry.id, idx);
+            if (glow > 0) {
+                ctx.fillStyle = 'rgba(255, 255, 255, ' + (0.92 + 0.12 * glow) + ')';
+                ctx.shadowBlur = 8 + 14 * glow;
+            } else {
+                ctx.shadowBlur = 8;
+            }
             ctx.beginPath();
-            ctx.arc(p.x, p.y, 1.8, 0, Math.PI * 2);
+            ctx.arc(p.x, p.y, 1.8 + 1.2 * glow, 0, Math.PI * 2);
             ctx.fill();
+            ctx.fillStyle = STAR_COLOR;
         });
         ctx.restore();
+    }
+
+    // Factor de brillo vivo de una estrella de constelación (0 = normal, 1 =
+    // destello máximo). Decae solo; las marcas viejas se limpian aquí.
+    function sparkleGlow(constId, starIndex) {
+        const spark = starSparkles.get(constId + ':' + starIndex);
+        if (!spark) return 0;
+        const age = performance.now() - spark.t0;
+        if (age >= SPARKLE_LIFE) {
+            starSparkles.delete(constId + ':' + starIndex);
+            return 0;
+        }
+        return 1 - age / SPARKLE_LIFE;
     }
 
     /* ------------------------------------------------------------------ */
@@ -372,26 +398,35 @@
     let departed = false;
     // Destello/expansión de luz muy sutil al fusionarse con Géminis.
     let arrivalFx = null;
+    // Destellos efímeros: cuando la viajera pasa cerca de una constelación,
+    // alguna de sus estrellas brilla un instante (cielo vivo, muy discreto).
+    let starSparkles = new Map();
+    const SPARKLE_RANGE = 68;          // px de proximidad que provoca el destello
+    const SPARKLE_LIFE = 750;          // ms que dura el brillo en esa estrella
 
     // Fases del viaje narrativo de la estrella especial. NO es una ruta directa
-    // Acuario→Géminis: la estrella (1) se desprende de Acuario, (2) traza dos
-    // vueltas visibles alrededor del centro, (3) deja la órbita y persigue el
-    // nodo real 16 de Géminis mientras la figura sigue girando, y (4) se integra
-    // con un destello. Total ≈ 25s en escritorio: el cruce se ve con calma.
-    const EXIT_DURATION = 2000;        // desprendimiento visible de Acuario
+    // Acuario→Géminis: la estrella (1) se desprende de Acuario (~2-3s), (2) traza
+    // dos vueltas visibles alrededor del centro (~16-20s), (3) deja la órbita y
+    // persigue el nodo real 16 de Géminis (~6-8s), y (4) se integra con un
+    // destello. Total ≈ 29-30s en escritorio: un vuelo cinematográfico y lento.
+    const EXIT_DURATION = 2600;        // desprendimiento visible de Acuario
     const ORBIT_TURNS = 2;             // dos vueltas completas alrededor del centro
-    const APPROACH_DURATION = 5000;    // cierre gradual sobre Géminis
+    const APPROACH_DURATION = 7000;    // cierre gradual sobre Géminis
     const ORBIT_RING_FACTOR = 0.92;    // órbita interior al anillo de las 11
     const TRAIL_MAX = 36;              // estela corta, nunca un cometa
 
-    // La duración se adapta a la pantalla (igual que el radio orbital). Dos
-    // vueltas ≈ 18s en escritorio: cada vuelta ≈ 9s, vuelo lento y visible.
+    // La duración se adapta a la pantalla (igual que el radio orbital): dos
+    // vueltas ≈ 17s base en escritorio (~8.5s por vuelta). El progreso y el
+    // ángulo se calculan SIEMPRE con tiempo real (performance.now()), nunca por
+    // frames, así que la duración es idéntica a cualquier FPS.
     function journeyScale() {
         return Math.max(0.75, Math.min(1.15, Math.min(sky.w, sky.h) / 700));
     }
 
+    // Con prefers-reduced-motion el viaje también se ve (no es un parpadeo de
+    // <1s): dura ~12s en total, quieto pero real, sin efectos accesorios.
     function orbitDurationFor() {
-        return reducedMotion ? 1 : Math.round(18000 * journeyScale());
+        return reducedMotion ? 9000 : Math.round(17000 * journeyScale());
     }
 
     function departStar(opts) {
@@ -431,6 +466,9 @@
             pos: { x: fromX, y: fromY },
             lastDest: null,
             trail: [],
+            // Partículas diminutas que se desprenden de la estela y se apagan.
+            particles: [],
+            emitAcc: 0,
             onArrive: typeof opts.onArrive === 'function' ? opts.onArrive : null
         };
         return true;
@@ -465,6 +503,7 @@
 
     // Núcleo brillante del viaje con halo suave.
     function drawTravelBody(ctx, x, y) {
+        // Halo difuso pequeño (nunca un globo gigante).
         ctx.save();
         ctx.globalAlpha = 0.16;
         ctx.fillStyle = 'rgba(160, 200, 255, 1)';
@@ -473,6 +512,7 @@
         ctx.fill();
         ctx.restore();
 
+        // Núcleo principal de la estrella.
         ctx.save();
         ctx.shadowColor = 'rgba(170, 205, 255, 0.95)';
         ctx.shadowBlur = 18;
@@ -480,6 +520,63 @@
         ctx.beginPath();
         ctx.arc(x, y, 3.1, 0, Math.PI * 2);
         ctx.fill();
+        ctx.restore();
+
+        // Punto central luminoso: el corazón de la estrella viajera.
+        ctx.save();
+        ctx.shadowColor = 'rgba(255, 255, 255, 1)';
+        ctx.shadowBlur = 26;
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    // Partículas: motas diminutas que caen de la cola y se desvanecen en el
+    // espacio. Son pocas y tenues: sensación de vuelo, no un rastro sólido.
+    function emitStarParticles(x, y, now) {
+        if (!travel.particles || reducedMotion) return;
+        travel.emitAcc += 1;
+        if (travel.emitAcc < 4) return; // ~cada 4 frames a 60fps
+        travel.emitAcc = 0;
+        travel.particles.push({
+            x: x + (Math.random() - 0.5) * 6,
+            y: y + (Math.random() - 0.5) * 6,
+            vx: (Math.random() - 0.5) * 0.24,
+            vy: (Math.random() - 0.5) * 0.24,
+            born: now,
+            life: 850,
+            r: Math.random() * 0.8 + 0.45
+        });
+        if (travel.particles.length > 14) travel.particles.shift();
+    }
+
+    function updateStarParticles(now) {
+        if (!travel || !travel.particles) return;
+        for (let i = travel.particles.length - 1; i >= 0; i--) {
+            const p = travel.particles[i];
+            if (now - p.born >= p.life) {
+                travel.particles.splice(i, 1);
+                continue;
+            }
+            p.x += p.vx;
+            p.y += p.vy;
+        }
+    }
+
+    function drawStarParticles(ctx, particles, now) {
+        if (!particles || !particles.length) return;
+        ctx.save();
+        ctx.fillStyle = 'rgba(226, 234, 255, 1)';
+        for (let i = 0; i < particles.length; i++) {
+            const p = particles[i];
+            const life = 1 - (now - p.born) / p.life;
+            ctx.globalAlpha = Math.max(0, life * 0.16);
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.r * (0.5 + life * 0.5), 0, Math.PI * 2);
+            ctx.fill();
+        }
         ctx.restore();
     }
 
@@ -577,8 +674,8 @@
             }
             const ringR = travel.ringRadius;
             const scale = journeyScale();
-            const exitDur = reducedMotion ? 120 : Math.round(EXIT_DURATION * scale);
-            const approachDur = reducedMotion ? 200 : Math.round(APPROACH_DURATION * scale);
+            const exitDur = reducedMotion ? 1000 : Math.round(EXIT_DURATION * scale);
+            const approachDur = reducedMotion ? 2500 : Math.round(APPROACH_DURATION * scale);
 
             let point;
             const phase = travel.phase;
@@ -603,23 +700,21 @@
             } else if (phase === 'orbit') {
                 // FASE 2 · VUELTAS: dos vueltas completas alrededor del centro con
                 // un ligero vaivén de radio (orgánico, no robótico). Las 11 siguen
-                // girando en su propio anillo exactamente como siempre.
-                if (reducedMotion) {
-                    // Movimiento reducido: sin vueltas; el acercamiento toma el relevo.
-                    travel.phase = 'approach';
-                    travel.approachStart = now;
-                }
+                // girando en su propio anillo exactamente como siempre. El ángulo
+                // se calcula con tiempo real: la duración no depende del FPS.
                 const duration = orbitDurationFor();
                 const vel = (2 * Math.PI * ORBIT_TURNS) / duration; // rad/ms
                 const t = now - travel.orbitStart;
+                const wobble = reducedMotion
+                    ? 0
+                    : ringR * 0.045 *
+                        Math.sin(t * 0.0011) * Math.sin(t * 0.00023 + 1.7);
                 const angle = travel.orbitStartAngle + vel * t;
-                const wobble = ringR * 0.045 *
-                    Math.sin(t * 0.0011) * Math.sin(t * 0.00023 + 1.7);
                 point = {
                     x: ccx + Math.cos(angle) * (ringR + wobble),
                     y: ccy + Math.sin(angle) * (ringR + wobble)
                 };
-                if (!reducedMotion && t >= duration) {
+                if (t >= duration) {
                     travel.phase = 'approach';
                     travel.approachStart = now;
                 }
@@ -657,6 +752,26 @@
             if (travel.trail.length > TRAIL_MAX) travel.trail.shift();
 
             drawTrail(ctx, travel.trail);
+
+            // Cielo vivo: si la viajera pasa cerca de una constelación, alguna de
+            // sus estrellas destella un instante (brillo breve y muy discreto;
+            // nunca toda la figura, nunca su geometría).
+            if (sky.currentLayout && phase !== 'exit') {
+                sky.currentLayout.forEach((entry) => {
+                    entry.stars.forEach((sp, idx) => {
+                        const dxx = sp.x - sx;
+                        const dyy = sp.y - sy;
+                        if (dxx * dxx + dyy * dyy < SPARKLE_RANGE * SPARKLE_RANGE) {
+                            starSparkles.set(entry.id + ':' + idx, { t0: now });
+                        }
+                    });
+                });
+            }
+
+            // Partículas que se desprenden de la cola y se apagan en el espacio.
+            emitStarParticles(sx, sy, now);
+            updateStarParticles(now);
+            drawStarParticles(ctx, travel.particles, now);
 
             // Unión sutil solo durante la aproximación final.
             const dToTarget = Math.hypot(dx - sx, dy - sy);
