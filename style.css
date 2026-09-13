@@ -58,6 +58,7 @@ html, body {
     opacity: 0.55;
     mix-blend-mode: screen;
     pointer-events: none;
+    transition: opacity 3s ease;
 }
 
 /* Nebulosa atmosférica discretísima: negro espacial, azul muy oscuro, azul
@@ -192,7 +193,7 @@ body.constellation-complete #celestial-map {
     stroke-width: 1.5;
     stroke-linecap: round;
     stroke-dasharray: 4 4;
-    transition: stroke 1.2s ease, stroke-width 0.8s ease, filter 0.8s ease;
+    transition: stroke 1.2s ease, stroke-width 0.8s ease, filter 0.8s ease, stroke-opacity 2.4s ease;
     animation: constellationFlow 3.2s linear infinite;
 }
 
@@ -243,7 +244,9 @@ body.constellation-complete #celestial-map {
     cursor: pointer;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
-    transition: transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transition: transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+                opacity 1.6s ease,
+                visibility 1.6s ease;
 }
 
 .star-point {
@@ -473,13 +476,33 @@ body.constellation-complete #celestial-map {
     cursor: pointer;
     touch-action: manipulation;
     padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
-    transition: opacity 1.2s cubic-bezier(0.4, 0, 0.2, 1), visibility 1.2s ease;
+    transition: background 1.2s ease, opacity 1.2s cubic-bezier(0.4, 0, 0.2, 1), visibility 1.2s ease;
 }
 
 #intro-overlay.fade-out {
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
+}
+
+/* Intro cinematográfica: una vez retirado el velo, el telón se vuelve
+   transparente para dejar ver el cielo (estrellas, polvo y el agujero negro
+   dibujados en el canvas). El salto con un toque sigue intacto. */
+#intro-overlay.cinema-clear {
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+/* Mientras dura la travesía (aprox. hasta el nacimiento), Acuario permanece
+   latente: ni líneas ni estrellas anticipan la figura antes de que nazca. */
+body.cinema-lock #constellation-lines .const-line {
+    stroke-opacity: 0;
+}
+
+body.cinema-lock .star-node {
+    opacity: 0;
+    visibility: hidden;
 }
 
 .intro-content {

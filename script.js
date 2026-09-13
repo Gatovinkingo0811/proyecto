@@ -184,7 +184,7 @@
     let finaleContinueReady = false;
     let anomalyStarted = false;
 
-    // --- INTRO PROGRESIVO (oscuridad → cielo → teaser → interacción) ---
+    // --- INTRO CINEMATOGRÁFICA (negro → agujero negro → universo nuevo) ---
     // Un puñado de estrellas reales de Acuario se insinúa antes de interactuar,
     // sin llegar a formar la figura. El resto permanece apagado hasta su turno.
     const introPreviewIds = new Set([1, 2, 8]);
@@ -193,6 +193,255 @@
     function stopIntroTimers() {
         introTimers.forEach(clearTimeout);
         introTimers = [];
+    }
+
+    // --- INTRO CINEMATOGRÁFICA (agujero negro → universo nuevo) ---
+    // El cielo de fondo (canvas del starfield) recorre fases mientras el telón
+    // de la introducción se retira: negro → polvo y estrellas lejanas →
+    // acercamiento → agujero negro creciendo (lente gravitacional) → entrada →
+    // vacío → el nuevo universo nace y Acuario aparece estrella a estrella.
+    // Todo ocurre DENTRO del único ciclo del starfield (sin RAF adicionales, sin
+    // elementos nuevos): el canvas dibuja el viaje y las estrellas DOM ya
+    // existentes se revelan en su orden real. Sin textos explicativos.
+    const CINEMA = {
+        HOLD: 2600,             // negro (el velo del overlay todavía cubre)
+        APPROACH_END: 11000,    // estrellas lejanas y polvo muy lentos
+        HOLE_GROW_END: 19000,   // el agujero negro crece y dobla la luz
+        HOLE_BRIGHT_END: 27500, // disco brillante, lente completa
+        ENTRANCE_END: 31500,    // la cámara entra al agujero (todo converge)
+        VOID_END: 35000,        // vacío: negro puro, un respiro
+        BIRTH_END: 44000        // universo nuevo: capas + Acuario progresa
+    };
+    // Orden suave de nacimiento de Acuario (del borde del ánfora hacia el 14).
+    const BIRTH_REVEAL_ORDER = [1, 8, 2, 3, 12, 4, 5, 6, 9, 11, 10, 7, 13, 14];
+
+    const cinema = {
+        active: false,
+        t0: 0,
+        phase: 'hold',
+        birthSent: false,
+        conf: {
+            black: 0,
+            hole: false,
+            ex: 0,
+            ey: 0,
+            holeR: 0,
+            lens: 0,
+            disc: 0,
+            ring: 0,
+            scale: 1,
+            layers: { far: 0, mid: 0, near: 0 }
+        }
+    };
+
+    function cinemaEase(t) {
+        return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    }
+
+    const cinemaLockedPhases = ['hold', 'approach', 'blackhole', 'entrance', 'void'];
+
+    // Reacciones de la escena al cambiar de fase (una vez por transición).
+    function onCinemaPhase(phase) {
+        const nebulaEl = document.getElementById('nebula');
+        const M = window.ExperienceMusic;
+
+        // Durante la travesía, Acuario permanece latente (ni líneas ni estrellas
+        // anticipan la figura); en el nacimiento y tras él, se muestra.
+        if (cinemaLockedPhases.indexOf(phase) !== -1) {
+            document.body.classList.add('cinema-lock');
+        } else {
+            document.body.classList.remove('cinema-lock');
+        }
+
+        if (phase === 'hold' || phase === 'void') {
+            if (nebulaEl) nebulaEl.style.opacity = '0';
+            if (phase === 'void' && M) M.duck(true, 1.4); // respiro musical en el vacío
+        } else if (phase === 'birth' || phase === 'done') {
+            if (nebulaEl) nebulaEl.style.opacity = '0.55';
+            if (M) M.duck(false, 2.4); // el universo nuevo nace: la música vuelve
+        } else {
+            if (nebulaEl) nebulaEl.style.opacity = '0.18';
+        }
+
+        if (phase === 'birth' && !cinema.birthSent) {
+            cinema.birthSent = true;
+            scheduleBirthReveal();
+        }
+    }
+
+    // El universo nuevo: las estrellas de Acuario aparecen una a una (misma
+    // geometría real, sin nodos nuevos). Primero se apagan todas para partir de
+    // cielo vacío y luego se encienden en orden suave.
+    function scheduleBirthReveal() {
+        Array.prototype.forEach.call(
+            document.querySelectorAll('#stars-container .star-node'),
+            function (n) {
+                n.classList.add('hidden');
+                n.classList.remove('revealed');
+            }
+        );
+        BIRTH_REVEAL_ORDER.forEach((id, i) => {
+            introTimers.push(setTimeout(() => {
+                const node = document.getElementById('star-node-' + id);
+                if (!node) return;
+                node.classList.remove('hidden');
+                node.classList.add('revealed');
+            }, 500 + i * 620));
+        });
+    }
+
+    // Avanza las fases del cine con tiempo real (igual que la órbita y el viaje
+    // de la estrella especial: sin dependencia del FPS). Rellena cinema.conf con
+    // la configuración del frame para que el render del canvas la consuma.
+    function updateCinema(now) {
+        if (interactionStarted) {
+            if (cinema.active) cinema.active = false;
+            return;
+        }
+        if (!cinema.active) return;
+
+        const t = now - cinema.t0;
+        const conf = cinema.conf;
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        conf.ex = w * 0.5;
+        conf.ey = h * 0.44;
+        const baseR = Math.max(48, Math.min(w, h) * 0.16);
+
+        let phase = 'hold';
+        let black = 0;
+        let hole = false;
+        let lens = 0;
+        let disc = 0;
+        let ring = 0;
+        let scale = 1;
+        let lf = 0;
+        let lm = 0;
+        let ln = 0;
+
+        if (t < CINEMA.HOLD) {
+            phase = 'hold';
+        } else if (t < CINEMA.APPROACH_END) {
+            phase = 'approach';
+            const p = (t - CINEMA.HOLD) / (CINEMA.APPROACH_END - CINEMA.HOLD);
+            lf = 0.06 + p * 0.75;
+            lm = p * 0.30;
+            ln = p * 0.12;
+        } else if (t < CINEMA.HOLE_GROW_END) {
+            phase = 'blackhole';
+            const p = (t - CINEMA.APPROACH_END) / (CINEMA.HOLE_GROW_END - CINEMA.APPROACH_END);
+            hole = true;
+            lens = p;
+            ring = p;
+            disc = p * 0.7;
+            lf = 0.62;
+            lm = 0.5 * p;
+            ln = 0.28 * p;
+        } else if (t < CINEMA.HOLE_BRIGHT_END) {
+            phase = 'blackhole';
+            const p = (t - CINEMA.HOLE_GROW_END) / (CINEMA.HOLE_BRIGHT_END - CINEMA.HOLE_GROW_END);
+            hole = true;
+            lens = 1;
+            ring = 1;
+            disc = 0.7 + p * 0.3;
+            lf = 0.62;
+            lm = 0.6;
+            ln = 0.4;
+        } else if (t < CINEMA.ENTRANCE_END) {
+            phase = 'entrance';
+            const p = (t - CINEMA.HOLE_BRIGHT_END) / (CINEMA.ENTRANCE_END - CINEMA.HOLE_BRIGHT_END);
+            hole = true;
+            lens = 1;
+            ring = 1;
+            disc = 1;
+            scale = 1 - 0.88 * cinemaEase(p);
+            black = p;
+            lf = 0.62;
+            lm = 0.5;
+            ln = 0.3;
+        } else if (t < CINEMA.VOID_END) {
+            phase = 'void';
+            black = 1;
+        } else if (t < CINEMA.BIRTH_END) {
+            phase = 'birth';
+            const p = Math.min(1, (t - CINEMA.VOID_END) / (CINEMA.BIRTH_END - CINEMA.VOID_END));
+            lf = p;
+            lm = Math.max(0, (p - 0.18) / 0.82);
+            ln = Math.max(0, (p - 0.4) / 0.6);
+        } else {
+            phase = 'done';
+            lf = 1;
+            lm = 1;
+            ln = 1;
+        }
+
+        conf.black = black;
+        conf.hole = hole;
+        conf.lens = lens;
+        conf.disc = disc;
+        conf.ring = ring;
+        conf.scale = scale;
+        conf.holeR = baseR * (0.15 + ring * 0.85);
+        conf.layers.far = lf;
+        conf.layers.mid = lm;
+        conf.layers.near = ln;
+
+        if (cinema.phase !== phase) {
+            cinema.phase = phase;
+            onCinemaPhase(phase);
+        }
+    }
+
+    // Dibujo del agujero negro (disco + anillo de fotones + núcleo oscuro) sobre
+    // el canvas del starfield. Simple y barato: un par de elipses rotando.
+    function drawBlackHole(ctx, conf, now) {
+        const ex = conf.ex;
+        const ey = conf.ey;
+        const r = conf.holeR;
+        const disc = conf.disc;
+        const ring = conf.ring;
+
+        if (ring > 0.03) {
+            // Resplandor tenue que rodea el horizonte (la lente se lee primero).
+            const glow = ctx.createRadialGradient(ex, ey, r, ex, ey, r * 6);
+            glow.addColorStop(0, 'rgba(255, 214, 170, ' + (0.10 * disc) + ')');
+            glow.addColorStop(0.55, 'rgba(176, 150, 255, ' + (0.05 * disc) + ')');
+            glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.fillStyle = glow;
+            ctx.beginPath();
+            ctx.arc(ex, ey, r * 6, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Disco de acreción (dos anillos desviados, rotando lentamente).
+            ctx.save();
+            ctx.translate(ex, ey);
+            ctx.globalAlpha = Math.min(1, ring * 0.9);
+            ctx.strokeStyle = 'rgba(230, 205, 178, 1)';
+            ctx.lineWidth = Math.max(1.2, r * 0.075);
+            ctx.beginPath();
+            ctx.ellipse(0, 0, r * (1.9 + 0.03 * Math.sin(now * 0.001)), r * 0.9, 0.35, 0, Math.PI * 2);
+            ctx.stroke();
+
+            ctx.globalAlpha = Math.min(1, ring * 0.65);
+            ctx.strokeStyle = 'rgba(196, 176, 255, 1)';
+            ctx.lineWidth = Math.max(1, r * 0.05);
+            ctx.beginPath();
+            ctx.ellipse(0, 0, r * (1.42 + 0.03 * Math.cos(now * 0.0009)), r * 0.68, 0.35, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // Núcleo: oscuro y sólido (las estrellas que caen tras él desaparecen).
+        if (r > 0) {
+            const core = ctx.createRadialGradient(ex, ey, r * 0.2, ex, ey, r * 1.5);
+            core.addColorStop(0, '#000000');
+            core.addColorStop(0.72, '#010208');
+            core.addColorStop(1, 'rgba(1, 2, 8, 0)');
+            ctx.fillStyle = core;
+            ctx.beginPath();
+            ctx.arc(ex, ey, r * 1.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
     }
 
     // Elementos del DOM
@@ -259,6 +508,12 @@
         }
         if (audioCtx && audioCtx.state === 'suspended') {
             audioCtx.resume();
+        }
+        // Contexto compartido con la música (music.js) para no crear duplicados.
+        window.__sharedAudioCtx = window.__sharedAudioCtx || audioCtx;
+        // La banda sonora arranca aquí, tras la primera interacción del usuario.
+        if (window.ExperienceMusic) {
+            window.ExperienceMusic.unlock();
         }
     }
 
@@ -604,6 +859,12 @@
         // del cielo, por encima de cualquier meteoro).
         function manageMeteors(now) {
             if (prefersReducedMotion) return;
+            // Durante la travesía al agujero negro no caen meteoros: solo en el
+            // cielo ya revelado.
+            if (cinema.active &&
+                (cinema.phase === 'hold' || cinema.phase === 'entrance' || cinema.phase === 'void')) {
+                return;
+            }
             if (meteorShowerActive) {
                 const cadence = showerIntensity >= 2 ? 1000 : 1700;
                 if (now - lastMeteorSpawn >= cadence && shootingStars.length < 8) {
@@ -625,39 +886,88 @@
             const dt = Math.min(64, now - lastTime);
             lastTime = now;
 
+            // Cine espacial: avanza fases y deja conf para este frame.
+            updateCinema(now);
+            const c = cinema.active ? cinema.conf : null;
+
             if (skyReveal < 1) {
                 skyReveal = Math.min(1, (now - skyRevealStart) / 6000);
             }
 
             ctx.clearRect(0, 0, width, height);
 
-            // Estrellas decorativas por capas: brillo independiente y deriva mínima.
+            // Estrellas decorativas por capas: brillo independiente, deriva mínima
+            // y (durante la intro cinematográfica) posiciones afectadas por la
+            // lente del agujero negro y por la revelación progresiva por capa.
             for (let i = 0; i < backgroundStars.length; i++) {
                 const s = backgroundStars[i];
                 if (s.twinkle) s.phase += s.twinkle * dt * 0.05;
                 const pulse = s.twinkle ? Math.sin(s.phase) * s.amplitude : 0;
-                const alpha = Math.max(0.04, Math.min(1, (s.baseAlpha + pulse) * skyReveal));
+                const revealMul = c ? (c.layers[s.layer.key] || 0) : skyReveal;
+                const alpha = Math.max(0, Math.min(1, (s.baseAlpha + pulse) * revealMul));
 
                 s.x += s.layer.drift * dt * 0.002;
                 if (s.x > width + 2) s.x -= width + 4;
                 if (s.x < -2) s.x += width + 4;
 
+                let px = s.x;
+                let py = s.y;
+                let swallowed = false;
+
+                if (c) {
+                    if (c.scale < 1) {
+                        px = c.ex + (px - c.ex) * c.scale;
+                        py = c.ey + (py - c.ey) * c.scale;
+                    }
+                    if (c.lens > 0) {
+                        const dx = px - c.ex;
+                        const dy = py - c.ey;
+                        const d2 = dx * dx + dy * dy;
+                        const influence = c.holeR * 4;
+                        if (d2 < influence * influence && d2 > 0.0001) {
+                            const dist = Math.sqrt(d2);
+                            if (dist < c.holeR * 1.15) {
+                                swallowed = true; // cae tras el horizonte
+                            } else {
+                                // Anillo de Einstein: desplazamiento tangencial.
+                                const g = c.lens * Math.pow(Math.min(1, (c.holeR * 2.2) / dist), 1.6);
+                                const tx = -dy / dist;
+                                const ty = dx / dist;
+                                px += tx * c.holeR * 0.9 * g;
+                                py += ty * c.holeR * 0.9 * g;
+                                // Tirón suave hacia el disco.
+                                const pullIn = c.lens * Math.max(0, 1 - dist / (c.holeR * 4)) * 24;
+                                px -= (dx / dist) * pullIn;
+                                py -= (dy / dist) * pullIn;
+                            }
+                        }
+                    }
+                }
+
+                if (swallowed || alpha <= 0) continue;
+
                 if (s.halo) {
                     ctx.globalAlpha = alpha * 0.6;
-                    ctx.drawImage(halo, s.x - 20, s.y - 20, 40, 40);
+                    ctx.drawImage(halo, px - 20, py - 20, 40, 40);
                 }
                 ctx.globalAlpha = alpha;
                 ctx.fillStyle = 'rgba(222, 230, 255, 1)';
                 ctx.beginPath();
-                ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+                ctx.arc(px, py, s.radius, 0, Math.PI * 2);
                 ctx.fill();
             }
             ctx.globalAlpha = 1;
+
+            // Agujero negro: disco de acreción y horizonte sobre el cielo.
+            if (c && c.hole) {
+                drawBlackHole(ctx, c, now);
+            }
 
             // Polvo estelar: motas muy tenues con deriva lentísima (profundidad
             // atmosférica sin que se note el efecto). Se omite con movimiento
             // reducido.
             if (!prefersReducedMotion) {
+                const dustMul = c ? Math.max(c.layers.far, Math.max(c.layers.mid, c.layers.near)) : 1;
                 for (let i = 0; i < dustParticles.length; i++) {
                     const d = dustParticles[i];
                     d.x += d.vx;
@@ -666,7 +976,7 @@
                     if (d.x > width + 2) d.x = -2;
                     if (d.y < -2) d.y = height + 2;
                     if (d.y > height + 2) d.y = -2;
-                    ctx.globalAlpha = d.a * (0.7 + 0.3 * Math.sin((now + d.phase) * 0.001));
+                    ctx.globalAlpha = d.a * (0.7 + 0.3 * Math.sin((now + d.phase) * 0.001)) * dustMul;
                     ctx.fillStyle = 'rgba(200, 216, 255, 1)';
                     ctx.beginPath();
                     ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
@@ -710,6 +1020,14 @@
             // Meteoros ocasionales (fuera del final) o un poco más presentes (final),
             // siempre discretos y por debajo de la estrella especial.
             manageMeteors(now);
+
+            // Entrada al agujero negro / vacío: funde todo a negro puro.
+            if (c && c.black > 0) {
+                ctx.globalAlpha = Math.min(1, c.black);
+                ctx.fillStyle = 'rgba(1, 2, 8, 1)';
+                ctx.fillRect(0, 0, width, height);
+                ctx.globalAlpha = 1;
+            }
 
             if (prefersReducedMotion || document.hidden) {
                 rafId = null;
@@ -952,6 +1270,11 @@
 
         modalOverlay.classList.add('open');
 
+        // La música baja un poco para dar paso al tono de la estrella.
+        if (window.ExperienceMusic) {
+            window.ExperienceMusic.duck(true, 1.2);
+        }
+
         setTimeout(() => {
             modalMessage.classList.add('revealed');
         }, 160);
@@ -963,6 +1286,11 @@
         modalOverlay.classList.remove('open');
 
         triggerHaptic('medium');
+
+        // El mensaje se cierra: la música vuelve a su nivel normal.
+        if (window.ExperienceMusic) {
+            window.ExperienceMusic.duck(false, 1.4);
+        }
 
         if (currentModalStarId !== null) {
             const justUnlocked = !discoveredStars.has(currentModalStarId);
@@ -1046,6 +1374,11 @@
             }
             node.classList.add('departed');
 
+            // El viaje de la estrella especial crece en intensidad musical.
+            if (window.ExperienceMusic) {
+                window.ExperienceMusic.boost(true, 2.4);
+            }
+
             CelestialSky.departStar({
                 fromX,
                 fromY,
@@ -1055,6 +1388,9 @@
                     if (!point) return;
                     triggerHaptic('medium');
                     playMysteryNote();
+                    if (window.ExperienceMusic) {
+                        window.ExperienceMusic.boost(false, 3);
+                    }
                 }
             });
         }, 1600);
@@ -1076,6 +1412,12 @@
         document.body.classList.add('constellation-complete');
         triggerHaptic('success');
         playFinaleMelody();
+
+        // La banda sonora se retira despacio para que la melodía y la pausa del
+        // final tomen el protagonismo.
+        if (window.ExperienceMusic) {
+            window.ExperienceMusic.fadeOut(9000);
+        }
 
         // El resplandor de la constelación principal se aplica de una vez, en el
         // momento en que termina de conectarse la 14ª estrella (no se activa
@@ -1155,40 +1497,26 @@
 
 
     // Eventos de usuario
-    // --- INTRO PROGRESIVO (cinematográfico y pausado) ---
-    // Los tiempos respetan una lectura humana cómoda: cada frase permanece
-    // ~2.5-3.4s con fade suave, pausa de ~0.9s entre mensajes, y todo el
-    // cielo emerge poco a poco desde la oscuridad.
+    // --- INTRO CINEMATOGRÁFICA ---
+    // El velo negro se retira y el cielo del starfield recorre la travesía al
+    // agujero negro (ver updateCinema). Sin textos explicativos: la escena se
+    // muestra y el toque la salta cuando el usuario quiera.
     const INTRO = {
         T_BACKDROP: 2200,   // el velo negro empieza a disiparse
-        T_TEASE1_IN: 5600,  // "Hay algo entre las estrellas…"
-        T_TEASE1_OUT: 10400,
-        T_TEASE2_IN: 13100, // "Descúbrelo."
-        T_TEASE2_OUT: 17800,
-        T_INTERACT: 19100   // "Toca una estrella." + apertura a la interacción
+        T_CLEAR: 2600,      // el telón se vuelve transparente: se ve el vuelo
+        T_INTERACT: prefersReducedMotion ? 7000 : 45200
     };
 
     function runIntro() {
         const backdrop = document.getElementById('intro-backdrop');
-        const tease1 = document.getElementById('intro-teaser-1');
-        const tease2 = document.getElementById('intro-teaser-2');
 
         const step = (t, fn) => introTimers.push(setTimeout(fn, t));
 
         step(INTRO.T_BACKDROP, () => {
             if (backdrop) backdrop.classList.add('dim');
         });
-        step(INTRO.T_TEASE1_IN, () => {
-            if (tease1) tease1.classList.add('on');
-        });
-        step(INTRO.T_TEASE1_OUT, () => {
-            if (tease1) tease1.classList.remove('on');
-        });
-        step(INTRO.T_TEASE2_IN, () => {
-            if (tease2) tease2.classList.add('on');
-        });
-        step(INTRO.T_TEASE2_OUT, () => {
-            if (tease2) tease2.classList.remove('on');
+        step(INTRO.T_CLEAR, () => {
+            introOverlay.classList.add('cinema-clear');
         });
         step(INTRO.T_INTERACT, finishIntroToInteraction);
     }
@@ -1198,6 +1526,7 @@
         if (interactionStarted) return;
         stopIntroTimers();
         interactionStarted = true;
+        document.body.classList.remove('cinema-lock');
 
         initAudio();
         triggerHaptic('light');
@@ -1264,6 +1593,13 @@
 
     // Iniciar aplicación
     function startApp() {
+        // La intro cinematográfica solo tiene movimiento con el viaje largo;
+        // prefers-reduced-motion se queda en la variante corta y estática.
+        if (!prefersReducedMotion) {
+            cinema.active = true;
+            cinema.t0 = performance.now();
+            document.body.classList.add('cinema-lock');
+        }
         setupStarfield();
         renderConstellation();
         if (window.CelestialSky && celestialMap) CelestialSky.init(celestialMap);
@@ -1278,6 +1614,9 @@
             introOverlay.style.display = 'none';
             isModalOpen = false;
             modalOverlay.classList.remove('open');
+            // Salió del cine aunque la intro no haya terminado: cielo normal.
+            cinema.active = false;
+            document.body.classList.remove('cinema-lock');
             initAudio();
             showFinale();
         });

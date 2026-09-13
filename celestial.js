@@ -782,13 +782,16 @@
 
             drawTravelBody(ctx, sx, sy);
 
-            // FASE 4 · INTEGRACIÓN: se cierra cuando la estrella alcanza el nodo
-            // real (destello + fusión). Desde ese mismo frame vive pegada al 16 de
-            // Géminis, siguiéndolo en cada vuelta posterior.
+            // FASE 4 · INTEGRACIÓN: se cierra SOLO dentro de una fase de
+            // aproximación válida y con progreso suficiente. La cercanía
+            // incidental (p. ej. pasar cerca del nodo durante la órbita) no
+            // basta: ap se mide desde el arranque real de la aproximación, así
+            // que la estrella nunca "termina demasiado pronto" ni salta.
             const ap = (travel.phase === 'approach')
                 ? Math.min(1, (now - travel.approachStart) / approachDur)
                 : 0;
-            if (travel.phase === 'approach' && (ap >= 0.999 || dToTarget < 26)) {
+            if (travel.phase === 'approach' &&
+                (ap >= 0.999 || (dToTarget < 20 && ap > 0.55))) {
                 const cb = travel.onArrive;
                 travel = null;
                 departed = true;
