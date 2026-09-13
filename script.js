@@ -1759,7 +1759,9 @@
         if (experienceStarted) return;
         experienceStarted = true;
         if (e) e.preventDefault();
+        console.debug('[CINEMA] beginExperience audioUnlocked=' + audioUnlocked + ' cinematicStarted=' + cinematicStarted + ' cinematicFinished=' + cinematicFinished + ' interactionReady=' + interactionReady);
         initAudio();
+        console.debug('[CINEMA] tras initAudio audioUnlocked=' + audioUnlocked);
         startCinematic();
     };
 
