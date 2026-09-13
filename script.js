@@ -298,15 +298,17 @@
         }
 
         if (phase === 'hold' || phase === 'void' || phase === 'dawn') {
-            // Fases separadas: hold y void son oscuridad real (nebula 0);
-            // dawn es cuando el espacio EMPIEZA a aparecer (nunca 0).
-            if (phase === 'hold') {
-                if (nebulaEl) nebulaEl.style.opacity = '0';
-            } else if (phase === 'dawn') {
-                if (nebulaEl) nebulaEl.style.opacity = '0.18';
-            } else {
+            // Fases separadas. hold conserva un cielo tenue (nebula visible,
+            // nunca 0: el espacio no debe quedar negro al pulsar Comenzar);
+            // dawn lo revela progresivamente (esta capa sube de 0.15 a 0.25) y
+            // SOLO void apaga el cielo a negro (ahí sí corresponde el vacío).
+            if (phase === 'void') {
                 if (nebulaEl) nebulaEl.style.opacity = '0';
                 if (M) M.duck(true, 1.4); // la música cae al vacío
+            } else if (phase === 'hold') {
+                if (nebulaEl) nebulaEl.style.opacity = '0.15';
+            } else {
+                if (nebulaEl) nebulaEl.style.opacity = '0.25';
             }
         } else if (phase === 'entrance') {
             if (nebulaEl) nebulaEl.style.opacity = '0.08';
@@ -314,7 +316,9 @@
             if (nebulaEl) nebulaEl.style.opacity = '0.55';
             if (M) M.duck(false, 2.4); // el universo nuevo nace: la música vuelve
         } else {
-            if (nebulaEl) nebulaEl.style.opacity = '0.18';
+            // approach / blackhole: el espacio profundo permanece igual de
+            // presente que al final del dawn (sin caídas de brillo).
+            if (nebulaEl) nebulaEl.style.opacity = '0.25';
         }
 
         if (phase === 'birth' && !cinema.birthSent) {
@@ -1712,9 +1716,9 @@
         cinema.t0 = performance.now();
         cinema.phase = 'hold';
         cinema.birthSent = false;
-        // Aplicar el estado hold de inmediato: nebula a 0, cinema-lock activo.
-        // De lo contrario onCinemaPhase('hold') nunca dispara porque phase ya
-        // está en 'hold' cuando updateCinema() corre por primera vez.
+        // Aplicar el estado hold de inmediato (nebula tenue visible, cinema-lock
+        // activo). De lo contrario onCinemaPhase('hold') nunca dispara porque la
+        // phase ya está en 'hold' cuando updateCinema() corre por primera vez.
         onCinemaPhase('hold');
         console.debug('[CINEMA] startCinematic t0=' + cinema.t0 + ' rm=' + prefersReducedMotion);
         document.body.classList.add('cinema-lock');
