@@ -160,11 +160,13 @@
     // El cielo estelar real (todas las constelaciones con RA/Dec) se dibuja en
     // el <canvas id="celestial-map"> mediante celestial.js. En el final, el zoom
     // out revela ese cielo: 11 constelaciones del zodíaco orbitan en el halo y
-    // la principal (Acuario) permanece fija en el centro. Al cierre, la estrella
-    // de Charlotte se enciende junto a Géminis (anomalía que sigue su órbita).
+    // la principal (Acuario) permanece fija en el centro. Al cierre, una de las
+    // 14 estrellas de Acuario (la nº14, φ Aqr) parte: cruza el cielo con estela,
+    // aterriza sobre un punto real de Géminis y se integra en su órbita. Acuario
+    // se queda con 13 estrellas vivas; la especial no vuelve jamás.
 
     // Los textos del final se escenifican en showFinale() por fases,
-    // intercalados con el zoom out, la estrella misteriosa y la firma.
+    // intercalados con el zoom out, el viaje de la estrella y la firma.
 
     // Estado
     let discoveredStars = new Set();
@@ -175,6 +177,8 @@
     let lastInteractionTime = 0;
     let finaleStarted = false;
     let interactionStarted = false;
+    // La estrella nº14 ya partió hacia Géminis: Acuario pasa de 14 a 13 nodos.
+    let specialDeparted = false;
 
     // --- INTRO PROGRESIVO (oscuridad → cielo → teaser → interacción) ---
     // Un puñado de estrellas reales de Acuario se insinúa antes de interactuar,
@@ -459,30 +463,76 @@
     let meteorShowerActive = false;
     let showerIntensity = 0;
 
+    // Usuario prefiere menos movimiento: el cielo queda estático y sin lluvias.
+    const prefersReducedMotion = window.matchMedia &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // Aparición progresiva del cielo al iniciar (0 → 1 en ~6s).
+    let skyReveal = prefersReducedMotion ? 1 : 0;
+    let skyRevealStart = 0;
+
+    // Sprite de halo pequeño prenderizado (rápido y sin gradientes por frame).
+    function makeHaloSprite() {
+        const c = document.createElement('canvas');
+        c.width = 96;
+        c.height = 96;
+        const g = c.getContext('2d');
+        const grad = g.createRadialGradient(48, 48, 0, 48, 48, 48);
+        grad.addColorStop(0, 'rgba(210, 225, 255, 0.45)');
+        grad.addColorStop(0.35, 'rgba(185, 200, 255, 0.14)');
+        grad.addColorStop(1, 'rgba(185, 200, 255, 0)');
+        g.fillStyle = grad;
+        g.fillRect(0, 0, 96, 96);
+        return c;
+    }
+
     function setupStarfield() {
         const canvas = document.getElementById('starfield');
         const ctx = canvas.getContext('2d');
         let width = (canvas.width = window.innerWidth);
         let height = (canvas.height = window.innerHeight);
 
-        const backgroundStars = [];
         const isMobile = width < 768;
-        const STAR_COUNT = isMobile ? Math.min(100, Math.floor((width * height) / 8000)) : 160;
+        const halo = makeHaloSprite();
 
-        for (let i = 0; i < STAR_COUNT; i++) {
-            backgroundStars.push({
-                x: Math.random() * width,
-                y: Math.random() * height,
-                radius: Math.random() * 1.2 + 0.3,
-                baseAlpha: Math.random() * 0.55 + 0.2,
-                twinkleSpeed: Math.random() * 0.03 + 0.01,
-                phase: Math.random() * Math.PI * 2
-            });
+        // Capas de profundidad: las más lejanas derivan más lentas.
+        const LAYERS = [
+            { drift: 0.012 },
+            { drift: 0.030 },
+            { drift: 0.070 }
+        ];
+
+        // Densidad adaptativa al área y al dispositivo (PC ~100-180, móvil ~60-120).
+        function buildStars() {
+            const stars = [];
+            let count = Math.floor((width * height) / 9500);
+            count = isMobile
+                ? Math.min(120, Math.max(60, count))
+                : Math.min(180, Math.max(110, count));
+
+            for (let i = 0; i < count; i++) {
+                const staticStar = Math.random() < 0.25; // ~1/4 permanece casi inmóvil
+                stars.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    radius: Math.random() * 1.3 + 0.3,
+                    baseAlpha: Math.random() * 0.5 + 0.12,
+                    twinkle: staticStar ? 0 : (Math.random() * 0.028 + 0.006),
+                    amplitude: Math.random() * 0.22 + 0.07,
+                    phase: Math.random() * Math.PI * 2,
+                    layer: LAYERS[i % LAYERS.length],
+                    halo: Math.random() < 0.06 // halo tenue en ~6%
+                });
+            }
+            return stars;
         }
 
+        let backgroundStars = buildStars();
         let shootingStars = [];
         let spawnTick = 0;
-        let lastSpawnCheck = performance.now();
+        let lastMeteorSpawn = 0;
+        let lastTime = performance.now();
+        let rafId = null;
 
         function spawnShootingStar() {
             shootingStars.push({
@@ -492,54 +542,57 @@
                 speed: Math.random() * 4 + 6,
                 dx: 1,
                 dy: 0.6 + Math.random() * 0.3,
-                alpha: 1,
                 life: 0,
                 maxLife: 40
             });
         }
 
         function addShootingStar() {
+            if (prefersReducedMotion) return;
             if (meteorShowerActive) {
                 const burst = showerIntensity >= 2 ? 3 : 1;
                 for (let i = 0; i < burst && shootingStars.length < (showerIntensity >= 2 ? 26 : 10); i++) {
                     spawnShootingStar();
                 }
-            } else if (Math.random() < 0.35 && shootingStars.length < 2) {
+            } else if (Math.random() < 0.3 && shootingStars.length < 2) {
                 spawnShootingStar();
             }
         }
 
-        function meteorLoop(now) {
-            if (meteorShowerActive) {
-                const elapsed = now - lastSpawnCheck;
-                const interval = showerIntensity >= 2 ? 220 : 650;
-                if (elapsed >= interval) {
-                    addShootingStar();
-                    lastSpawnCheck = now;
-                }
-                if (spawnTick > 0) {
-                    window.clearInterval(spawnTick);
-                    spawnTick = 0;
-                }
-            } else if (!spawnTick) {
-                lastSpawnCheck = 0;
-                spawnTick = window.setInterval(addShootingStar, 5500);
-            }
-        }
+        function render(now) {
+            if (now > lastTime + 200) lastTime = now; // salto de pestaña: evitar dt gigante
 
-        function render() {
+            const dt = Math.min(64, now - lastTime);
+            lastTime = now;
+
+            if (skyReveal < 1) {
+                skyReveal = Math.min(1, (now - skyRevealStart) / 6000);
+            }
+
             ctx.clearRect(0, 0, width, height);
 
+            // Estrellas decorativas por capas: brillo independiente y deriva mínima.
             for (let i = 0; i < backgroundStars.length; i++) {
                 const s = backgroundStars[i];
-                s.phase += s.twinkleSpeed;
-                const alpha = s.baseAlpha + Math.sin(s.phase) * 0.25;
+                if (s.twinkle) s.phase += s.twinkle * dt * 0.05;
+                const pulse = s.twinkle ? Math.sin(s.phase) * s.amplitude : 0;
+                const alpha = Math.max(0.04, Math.min(1, (s.baseAlpha + pulse) * skyReveal));
 
-                ctx.fillStyle = `rgba(224, 231, 255, ${Math.max(0.1, Math.min(1, alpha))})`;
+                s.x += s.layer.drift * dt * 0.002;
+                if (s.x > width + 2) s.x -= width + 4;
+                if (s.x < -2) s.x += width + 4;
+
+                if (s.halo) {
+                    ctx.globalAlpha = alpha * 0.6;
+                    ctx.drawImage(halo, s.x - 20, s.y - 20, 40, 40);
+                }
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = 'rgba(222, 230, 255, 1)';
                 ctx.beginPath();
                 ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
                 ctx.fill();
             }
+            ctx.globalAlpha = 1;
 
             for (let i = shootingStars.length - 1; i >= 0; i--) {
                 const ss = shootingStars[i];
@@ -558,8 +611,8 @@
                     ss.x - ss.dx * ss.length,
                     ss.y - ss.dy * ss.length
                 );
-                grad.addColorStop(0, `rgba(255, 255, 255, ${alpha})`);
-                grad.addColorStop(1, 'rgba(167, 139, 250, 0)');
+                grad.addColorStop(0, `rgba(226, 234, 255, ${alpha})`);
+                grad.addColorStop(1, 'rgba(150, 175, 235, 0)');
 
                 ctx.strokeStyle = grad;
                 ctx.lineWidth = meteorShowerActive ? 1.8 : 1.5;
@@ -573,17 +626,55 @@
                 }
             }
 
-            meteorLoop(performance.now());
-            requestAnimationFrame(render);
+            // Lluvia de meteoros (solo en el final) o destellos ocasionales.
+            if (meteorShowerActive) {
+                if (now - lastMeteorSpawn > (showerIntensity >= 2 ? 220 : 650)) {
+                    addShootingStar();
+                    lastMeteorSpawn = now;
+                }
+            } else if (!spawnTick && !prefersReducedMotion) {
+                spawnTick = window.setInterval(addShootingStar, 5500);
+            }
+
+            if (prefersReducedMotion || document.hidden) {
+                rafId = null;
+                return; // cielo estático o pestaña en segundo plano
+            }
+            rafId = requestAnimationFrame(render);
         }
 
-        render();
+        function startRender() {
+            if (rafId) return;
+            if (prefersReducedMotion) return;
+            skyRevealStart = performance.now();
+            lastTime = performance.now();
+            rafId = requestAnimationFrame(render);
+        }
+
+        // Con prefers-reduced-motion se pinta un cielo estático una sola vez.
+        if (prefersReducedMotion) {
+            skyReveal = 1;
+            skyRevealStart = 0;
+            render(performance.now());
+        } else {
+            startRender();
+        }
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+            } else {
+                startRender();
+            }
+        });
 
         const handleResize = () => {
             width = canvas.width = window.innerWidth;
             height = canvas.height = window.innerHeight;
+            backgroundStars = buildStars();
             renderConstellation();
             if (window.CelestialSky) CelestialSky.resize();
+            if (!prefersReducedMotion && !rafId) startRender();
         };
 
         window.addEventListener('resize', handleResize);
@@ -644,8 +735,13 @@
             coordsMap.set(star.id, getStarPixelCoords(star, w, h));
         });
 
+        // Estrella que partió: si ya viajó a Géminis, Acuario queda con 13
+        // (sus líneas y su nodo no vuelven a dibujarse en ningún re-render).
+        const departedIds = specialDeparted ? new Set([14]) : null;
+
         // 1. Trazar líneas
         CONSTELLATION_LINES.forEach(([idA, idB]) => {
+            if (departedIds && (departedIds.has(idA) || departedIds.has(idB))) return;
             const pA = coordsMap.get(idA);
             const pB = coordsMap.get(idB);
             if (!pA || !pB) return;
@@ -667,6 +763,7 @@
 
         // 2. Colocar estrellas interactivas
         STARS.forEach(star => {
+            if (departedIds && departedIds.has(star.id)) return;
             const p = coordsMap.get(star.id);
             const node = document.createElement('div');
             node.classList.add('star-node');
@@ -837,11 +934,52 @@
         }, delay);
     }
 
-    // Conecta la estrella de ella: se enciende la anomalía de Charlotte en el
-    // canvas, que orbita junto a Géminis (el halo la arrastra), nunca fija.
-    function connectMysteryStar() {
-        if (!window.CelestialSky) return;
-        CelestialSky.showCharlotte();
+    // La estrella especial: nace en un punto real de Acuario (la nº14, φ Aqr),
+    // brilla por un instante en su nodo y abandona la constelación. El canvas
+    // la dibuja cruzando el cielo con estela hasta aterrizar sobre la estrella
+    // 16 de Géminis (punto real de zodiac-data.js) e integrarse en su órbita.
+    // Acuario pasa a 13 estrellas vivas y la especial no vuelve.
+    function launchSpecialStar() {
+        if (!window.CelestialSky || specialDeparted) return;
+
+        // Origen en pantalla (px CSS): ya incluye el zoom final del contenedor.
+        const node = document.getElementById('star-node-14');
+        if (!node) {
+            specialDeparted = true;
+            return;
+        }
+        const rect = node.getBoundingClientRect();
+        const fromX = rect.left + rect.width / 2;
+        const fromY = rect.top + rect.height / 2;
+
+        specialDeparted = true;
+
+        // Brillo breve en el punto de origen antes de desvanecerse y partir.
+        triggerHaptic('light');
+        node.classList.add('special-chosen');
+        setTimeout(() => node.classList.add('departed'), 1600);
+
+        const ok = CelestialSky.departStar({
+            fromX,
+            fromY,
+            destId: 'Gem',
+            destIndex: 16,
+            duration: 3400,
+            onArrive(point) {
+                if (!point) return;
+                triggerHaptic('medium');
+                playMysteryNote();
+                if (hintElement) {
+                    hintElement.textContent = "Ya no está en Acuario: ilumina Géminis";
+                }
+            }
+        });
+
+        // Si el cielo no pudo lanzar el viaje, restauramos el nodo de origen.
+        if (!ok) {
+            specialDeparted = false;
+            node.classList.remove('special-chosen', 'departed');
+        }
     }
 
 // Pantalla de cierre: una pequeña historia final escenificada.
@@ -851,8 +989,10 @@
     // 3) El mensaje final se escenifica y la firma cierra la experiencia.
     // 4) Se dejan unos 30s para que pueda leer a tiempo, y después el texto se
     //    va desvaneciendo poco a poco, dejando solo el cielo de fondo.
-    // 5) Tras ese cierre aparece la estrella de Charlotte junto a Géminis (ya no
-    //    al instante): su constelación se alumbra y se conecta con ella.
+    // 5) Tras ese cierre, una de las 14 estrellas de Acuario (la nº14) se
+    //    ilumina, cruza el cielo con estela y aterriza sobre la estrella 16 de
+    //    Géminis (punto real del zodíaco). Acuario se queda con 13; la especial
+    //    orbita a partir de entonces como parte de su nueva constelación.
     function showFinale() {
         finaleStarted = true;
         document.body.classList.add('constellation-complete');
@@ -887,7 +1027,7 @@
 
         // El resto de frases flota en la misma pausa de lectura.
         const lastMainTime = textsStart + texts.length * textGap;
-        addFinaleParagraph("Es la única estrella que no está en ningún mapa.", lastMainTime + 2200);
+        addFinaleParagraph("Es la única que no sigue las reglas del mapa.", lastMainTime + 2200);
         addFinaleParagraph("Tú apareciste poco a poco en mi vida.", lastMainTime + 4800);
         addFinaleParagraph("Y llegaste para quedarte para siempre.", lastMainTime + 6400);
         addFinaleParagraph("Esa estrella lleva tu nombre.", lastMainTime + 8000);
@@ -908,13 +1048,11 @@
             finaleSign.classList.add('fade-out');
         }, fadeTime);
 
-        // La estrella de Charlotte en Géminis aparece al terminar esos 30s,
-        // nunca al instante: gira con su constelación en el halo (no es fija).
+        // La estrella especial parte de Acuario al terminar esos 30s, nunca al
+        // instante: cruza el cielo con estela y se integra en Géminis.
         const starTime = fadeTime + 2500;
         setTimeout(() => {
-            triggerHaptic('light');
-            playMysteryNote();
-            connectMysteryStar();
+            launchSpecialStar();
         }, starTime);
 
         // El escenario se retira por completo y queda solo el cielo de fondo.
@@ -926,14 +1064,19 @@
 
 
     // Eventos de usuario
-    // --- INTRO PROGRESIVO ---
-    // Secuencia automática y no interactiva:
-    //   0s       todo a oscuras (el velo cubre el cielo)
-    //   1.8s     el velo negro se disipa: las estrellas de fondo emergen despacio
-    //   3.6s     primera insinuación: "Hay algo entre las estrellas…"
-    //   5.4s     se desvanece
-    //   5.9s     "Descúbrelo."
-    //   7.3s     se desvanece → "Empieza por una estrella" y empieza la interacción
+    // --- INTRO PROGRESIVO (cinematográfico y pausado) ---
+    // Los tiempos respetan una lectura humana cómoda: cada frase permanece
+    // ~2.5-3.4s con fade suave, pausa de ~0.9s entre mensajes, y todo el
+    // cielo emerge poco a poco desde la oscuridad.
+    const INTRO = {
+        T_BACKDROP: 2200,   // el velo negro empieza a disiparse
+        T_TEASE1_IN: 5600,  // "Hay algo entre las estrellas…"
+        T_TEASE1_OUT: 10400,
+        T_TEASE2_IN: 13100, // "Descúbrelo."
+        T_TEASE2_OUT: 17800,
+        T_INTERACT: 19100   // "Toca una estrella." + apertura a la interacción
+    };
+
     function runIntro() {
         const backdrop = document.getElementById('intro-backdrop');
         const tease1 = document.getElementById('intro-teaser-1');
@@ -941,22 +1084,22 @@
 
         const step = (t, fn) => introTimers.push(setTimeout(fn, t));
 
-        step(1800, () => {
+        step(INTRO.T_BACKDROP, () => {
             if (backdrop) backdrop.classList.add('dim');
         });
-        step(3600, () => {
+        step(INTRO.T_TEASE1_IN, () => {
             if (tease1) tease1.classList.add('on');
         });
-        step(5400, () => {
+        step(INTRO.T_TEASE1_OUT, () => {
             if (tease1) tease1.classList.remove('on');
         });
-        step(5900, () => {
+        step(INTRO.T_TEASE2_IN, () => {
             if (tease2) tease2.classList.add('on');
         });
-        step(7300, () => {
+        step(INTRO.T_TEASE2_OUT, () => {
             if (tease2) tease2.classList.remove('on');
         });
-        step(7700, finishIntroToInteraction);
+        step(INTRO.T_INTERACT, finishIntroToInteraction);
     }
 
     // Cierra el telón y abre la interacción: solo la estrella activa brilla.
@@ -979,7 +1122,7 @@
     }
 
     function setInteractionHint() {
-        hintElement.textContent = "Empieza por una estrella";
+        hintElement.textContent = "Toca una estrella";
     }
 
     // Un toque durante la introducción la salta sin romper la secuencia.

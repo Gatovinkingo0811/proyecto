@@ -34,11 +34,24 @@
  * min(w, h) y quedan acotados para que ninguna constelación salga de pantalla
  * (radio ≤ 42% de minDim + cota superior de tamaño ≤ 7.5% de minDim).
  *
+ * Estrella especial (narrativa, sin etiquetas):
+ *   - Nace en una de las 14 estrellas interactivas de Acuario (coordenadas de
+ *     pantalla del DOM, ya transformadas por el zoom), traza un arco con estela
+ *     y aterriza sobre un punto REAL de Géminis: la estrella 16 de su figura
+ *     (el pie, último nodo del último segmento de zodiac-data.js). Al llegar,
+ *     ya no vuelve a Acuario: se dibuja "integrada" en Géminis a cada frame,
+ *     por lo que sigue la órbita con la figura aunque el mapa se re-renderice.
+ *
+ * Accesibilidad: con prefers-reduced-motion la órbita se detiene (velocidad 0)
+ * y el viaje de la estrella especial se resuelve en un solo frame (sin arco
+ * ni estela), manteniendo igualmente el estado narrativo final.
+ *
  * API pública: window.CelestialSky
- *   .init(canvas)          prepara el canvas y lanza la animación.
- *   .resize()              recalcula dimensiones (móvil/escritorio).
- *   .showCharlotte()       dibuja la anomalía de Charlotte (sigue a Géminis).
- *   .getConstellation(id)  { id, name } de una constelación real.
+ *   .init(canvas)                  prepara el canvas y lanza la animación.
+ *   .resize()                      recalcula dimensiones (móvil/escritorio).
+ *   .getConstellation(id)          { id, name } de una constelación real.
+ *   .getStarScreenPosition(c,i)    posición px (CSS) de un nodo real [c][i].
+ *   .departStar(opts)              lanza el viaje de la estrella especial.
  *   .isReady() / .dataVersion()
  * ========================================================================== */
 
@@ -50,6 +63,10 @@
     /* ------------------------------------------------------------------ */
 
     const RAW_ZODIAC = (global.ZODIAC_DATA || []);
+
+    // El usuario prefiere menos movimiento: órbita congelada y viaje "instantáneo".
+    const reducedMotion = window.matchMedia &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     // Acuario, la constelación principal, queda fija en el centro.
     const MAIN_ID = 'Aqr';
@@ -63,7 +80,9 @@
 
     // Velocidad orbital global (radianes por frame). Solo este ángulo avanza;
     // cada constelación añade su fase fija para repartirse en el círculo.
-    const ORBIT_SPEED = 0.003;
+    // Lenta y elegante: una vuelta completa ≈ 65s en 60fps. Sin movimiento
+    // decorativo bajo prefers-reduced-motion.
+    const ORBIT_SPEED = reducedMotion ? 0 : 0.0016;
 
     // Escala de referencia de la proyección (misma que constellation-viewer.js).
     const PROJECT_BOX = 200;
@@ -188,23 +207,13 @@
             .map((seg) => seg.map((idx) => unitStars[idx]).filter(Boolean))
             .filter((ln) => ln.length >= 2);
 
-        // Extremo guía (anomalía de Charlotte): último nodo del último
-        // segmento real (el pie de Géminis).
-        let tipIdx = unitStars.length - 1;
-        for (let s = proj.segments.length - 1; s >= 0; s--) {
-            const seg = proj.segments[s];
-            if (seg && seg.length) { tipIdx = seg[seg.length - 1]; break; }
-        }
-        const tip = unitStars[tipIdx] || unitStars[0];
-
         const shape = {
             id,
             name: cz.name,
             unitStars: Object.freeze(unitStars.map(Object.freeze)),
             unitLines: Object.freeze(
                 unitLines.map((ln) => Object.freeze(ln.map(Object.freeze)))
-            ),
-            tip: Object.freeze({ x: tip.x, y: tip.y })
+            )
         };
 
         unitCache.set(id, Object.freeze(shape));
@@ -272,11 +281,7 @@
                 originX: ox,
                 originY: oy,
                 stars,
-                lines,
-                tip: {
-                    x: ox + shape.tip.x * targetRadius,
-                    y: oy + shape.tip.y * targetRadius
-                }
+                lines
             });
         });
 
@@ -324,82 +329,188 @@
         ctx.restore();
     }
 
-    // Anomalía de Charlotte: estrella que no pertenece a ningún mapa, nace en
-    // un extremo de Géminis y orbita con la figura (traslación de grupo).
-    function drawCharlotteAnomaly(entry, ctx, w, h) {
-        if (!sky.showCharlotte || !entry) return;
+    /* ------------------------------------------------------------------ */
+    /* Estrella especial: de Acuario a un punto real de Géminis            */
+    /* ------------------------------------------------------------------ */
 
-        const tip = entry.tip;
-        const dx = tip.x - entry.originX;
-        const dy = tip.y - entry.originY;
-        const len = Math.hypot(dx, dy) || 1;
-        const ext = Math.max(22, Math.min(w, h) * 0.055);
-        const cx = tip.x + (dx / len) * ext;
-        const cy = tip.y + (dy / len) * ext;
+    // Posición (px CSS) de un nodo real de la figura [constId][starIndex] en el
+    // layout del frame actual. El canvas pinta en px CSS (contexto escalado por
+    // dpr), así que estas coordenadas son directamente comparables con las del
+    // DOM (getBoundingClientRect), ya incluidas las transformaciones de zoom.
+    function getStarScreenPosition(constId, starIndex) {
+        const layout = sky.currentLayout || orbitLayout(sky.w, sky.h);
+        const entry = layout.get(constId);
+        if (!entry) return null;
+        const star = entry.stars[starIndex];
+        if (!star) return null;
+        return { x: star.x, y: star.y };
+    }
 
-        // Línea delgada desde el extremo de Géminis hasta la estrella.
+    // Punto real de destino: la estrella 16 de Géminis (el pie, último nodo del
+    // último segmento de zodiac-data.js). No es un lugar inventado.
+    const NARRATIVE_TARGET = { destId: 'Gem', destIndex: 16 };
+
+    // Estado del vuelo y del aterrizaje. Una sola estrella, sin etiquetas.
+    let travel = null;
+    let departed = false;
+
+    function departStar(opts) {
+        if (travel || !opts) return false;
+
+        const fromX = Number(opts.fromX);
+        const fromY = Number(opts.fromY);
+        if (!isFinite(fromX) || !isFinite(fromY)) return false;
+
+        const target = opts.destId
+            ? { destId: opts.destId, destIndex: Number(opts.destIndex) }
+            : NARRATIVE_TARGET;
+
+        travel = {
+            fromX,
+            fromY,
+            destId: target.destId,
+            destIndex: target.destIndex,
+            startedAt: performance.now(),
+            // Con prefers-reduced-motion: llegada en el siguiente frame, sin arco.
+            duration: Math.max(1, opts.duration || (reducedMotion ? 1 : 3400)),
+            trail: [],
+            onArrive: typeof opts.onArrive === 'function' ? opts.onArrive : null
+        };
+        return true;
+    }
+
+    function easeInOutQuad(t) {
+        return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    }
+
+    // Estela tenue y delgada: una polilínea de recuerdos recientes.
+    function drawTrail(ctx, trail) {
         ctx.save();
-        ctx.beginPath();
-        ctx.moveTo(tip.x, tip.y);
-        ctx.lineTo(cx, cy);
-        ctx.strokeStyle = 'rgba(255, 182, 193, 0.38)';
-        ctx.lineWidth = 1;
-        ctx.shadowColor = 'rgba(255, 105, 180, 0.75)';
-        ctx.shadowBlur = 8;
-        ctx.stroke();
-        ctx.restore();
-
-        // Halo suave tras la estrella.
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(cx, cy, 11, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(255, 105, 180, 0.14)';
-        ctx.fill();
-        ctx.restore();
-
-        // La estrella: radio mayor, tono rosado y resplandor intenso.
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(cx, cy, 3.6, 0, Math.PI * 2);
-        ctx.fillStyle = '#ffb6c1';
-        ctx.shadowColor = '#ff69b4';
-        ctx.shadowBlur = 22;
-        ctx.fill();
-        ctx.restore();
-
-        // Etiqueta pequeña en cursiva tenue.
-        ctx.save();
-        ctx.font = 'italic 300 13px Georgia, serif';
-        ctx.textAlign = 'center';
-        ctx.fillStyle = 'rgba(255, 182, 193, 0.75)';
-        ctx.shadowColor = 'rgba(255, 105, 180, 0.6)';
-        ctx.shadowBlur = 6;
-        ctx.fillText('Charlotte', cx, cy - 13);
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        for (let i = 1; i < trail.length; i++) {
+            ctx.strokeStyle = 'rgba(185, 212, 255, ' + ((i / trail.length) * 0.45) + ')';
+            ctx.lineWidth = 1.1;
+            ctx.beginPath();
+            ctx.moveTo(trail[i - 1].x, trail[i - 1].y);
+            ctx.lineTo(trail[i].x, trail[i].y);
+            ctx.stroke();
+        }
         ctx.restore();
     }
 
+    // Núcleo brillante del viaje con halo suave.
+    function drawTravelBody(ctx, x, y) {
+        ctx.save();
+        ctx.globalAlpha = 0.16;
+        ctx.fillStyle = 'rgba(160, 200, 255, 1)';
+        ctx.beginPath();
+        ctx.arc(x, y, 14, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        ctx.save();
+        ctx.shadowColor = 'rgba(170, 205, 255, 0.95)';
+        ctx.shadowBlur = 18;
+        ctx.fillStyle = '#eef4ff';
+        ctx.beginPath();
+        ctx.arc(x, y, 3.1, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    // Tras el aterrizaje, la especial ya pertenece a Géminis: se dibuja en su
+    // punto real a cada frame (sigue la órbita con la figura).
+    function drawIntegratedStar(ctx, x, y) {
+        ctx.save();
+        ctx.globalAlpha = 0.22;
+        ctx.fillStyle = 'rgba(196, 181, 253, 1)';
+        ctx.beginPath();
+        ctx.arc(x, y, 16, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        ctx.save();
+        ctx.shadowColor = 'rgba(214, 200, 255, 0.95)';
+        ctx.shadowBlur = 16;
+        ctx.fillStyle = '#fff4fb';
+        ctx.beginPath();
+        ctx.arc(x, y, 3.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    // Avanza el vuelo y dibuja la estrella especial (viaje o integración).
+    function updateTravel(ctx, w, h) {
+        if (travel) {
+            const dest = getStarScreenPosition(travel.destId, travel.destIndex);
+            const t = Math.min(1, (performance.now() - travel.startedAt) / travel.duration);
+            const e = easeInOutQuad(t);
+
+            const sx = travel.fromX;
+            const sy = travel.fromY;
+            const dx = dest ? dest.x : sx;
+            const dy = dest ? dest.y : sy;
+
+            // Arco suave: control en el punto medio desplazado en perpendicular
+            // a la cuerda del trayecto. Cuanto más largo, más curvatura.
+            const chord = Math.hypot(dx - sx, dy - sy) || 1;
+            const nx = -(dy - sy) / chord;
+            const ny = (dx - sx) / chord;
+            const q = Math.min(90, Math.max(28, chord * 0.22));
+            const mx = (sx + dx) / 2 + nx * q;
+            const my = (sy + dy) / 2 + ny * q;
+
+            const u = 1 - e;
+            const px = u * u * sx + 2 * u * e * mx + e * e * dx;
+            const py = u * u * sy + 2 * u * e * my + e * e * dy;
+
+            travel.trail.push({ x: px, y: py });
+            if (travel.trail.length > 34) travel.trail.shift();
+
+            drawTrail(ctx, travel.trail);
+            drawTravelBody(ctx, px, py);
+
+            if (t >= 1) {
+                const cb = travel.onArrive;
+                const arrivedAt = dest && isFinite(dest.x) && isFinite(dest.y)
+                    ? { x: dx, y: dy }
+                    : { x: px, y: py };
+                travel = null;
+                departed = true;
+                if (cb) cb(arrivedAt);
+            }
+        }
+
+        if (departed) {
+            const dest = getStarScreenPosition('Gem', 16);
+            if (dest) drawIntegratedStar(ctx, dest.x, dest.y);
+        }
+    }
+
     function animate() {
-        const ctx = sky.ctx;
+        const ctx2 = sky.ctx;
         const canvas = sky.canvas;
 
-        if (ctx && canvas && sky.w) {
+        if (ctx2 && canvas && sky.w) {
             const w = sky.w;
             const h = sky.h;
             const dpr = sky.dpr || 1;
 
             // Alta resolución: dibuja en píxeles CSS con el contexto escalado.
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx2.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx2.clearRect(0, 0, canvas.width, canvas.height);
 
             // Único movimiento orbital: avanza el ángulo global.
             globalAngle += ORBIT_SPEED;
 
             // Las 11 constelaciones en su anillo circular (traslación pura).
             const layout = orbitLayout(w, h);
-            layout.forEach((entry) => drawConstellation(entry, ctx));
+            sky.currentLayout = layout;
+            layout.forEach((entry) => drawConstellation(entry, ctx2));
 
-            // La anomalía de Charlotte sigue a Géminis en la órbita.
-            drawCharlotteAnomaly(layout.get('Gem'), ctx, w, h);
+            // La estrella especial: viaje o integración en Géminis.
+            updateTravel(ctx2, w, h);
         }
 
         requestAnimationFrame(animate);
@@ -416,14 +527,9 @@
         h: 0,
         dpr: 1,
         ready: false,
-        showCharlotte: false,
+        currentLayout: null,
         rafId: null
     };
-
-    function startLoop() {
-        if (sky.rafId) return;
-        sky.rafId = requestAnimationFrame(animate);
-    }
 
     function resize() {
         if (!sky.canvas) return;
@@ -450,15 +556,7 @@
         window.addEventListener('resize', resize);
         window.addEventListener('orientationchange', () => setTimeout(resize, 150));
         resize();
-        startLoop();
         return sky;
-    }
-
-    // Enciende la anomalía de Charlotte junto a Géminis. El final la invoca
-    // tras la pausa de lectura; orbita con su constelación, no es un punto fijo.
-    function showCharlotte() {
-        sky.showCharlotte = true;
-        document.body.classList.add('show-charlotte');
     }
 
     function getConstellation(id) {
@@ -470,12 +568,13 @@
     global.CelestialSky = {
         init,
         resize,
-        showCharlotte,
         getConstellation,
+        getStarScreenPosition,
+        departStar,
         isReady: () => sky.ready,
         dataVersion: () => 'real-ra-dec-zodiac'
     };
 
-    // Arranca el bucle: el halo orbita de forma continua desde la carga.
-    startLoop();
+    // Arranca el bucle: el halo dibuja el cielo orbital de forma continua.
+    requestAnimationFrame(animate);
 }(window));

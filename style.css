@@ -1,6 +1,6 @@
 ﻿:root {
-    --bg-dark: #070714;
-    --bg-gradient: radial-gradient(circle at 50% 40%, #151638 0%, #0c0d24 50%, #05060f 100%);
+    --bg-dark: #020308;
+    --bg-gradient: radial-gradient(ellipse at 50% 38%, #081228 0%, #050a1a 42%, #020409 78%, #010104 100%);
     --star-dormant: rgba(190, 200, 240, 0.28);
     --star-active: #ffffff;
     --star-active-glow: rgba(196, 181, 253, 0.95);
@@ -49,13 +49,13 @@ html, body {
     pointer-events: none;
 }
 
-/* Atmospheric cosmic nebula */
+/* Atmospheric cosmic nebula: negro espacial con azul profundo, casi sin morado */
 #nebula {
     position: absolute;
     inset: 0;
     z-index: 2;
     background: var(--bg-gradient);
-    opacity: 0.85;
+    opacity: 0.6;
     mix-blend-mode: screen;
     pointer-events: none;
 }
@@ -64,9 +64,19 @@ html, body {
     content: '';
     position: absolute;
     inset: 0;
-    background: radial-gradient(ellipse at 65% 35%, rgba(139, 92, 246, 0.15), transparent 60%),
-                radial-gradient(ellipse at 30% 70%, rgba(236, 72, 153, 0.08), transparent 50%),
-                radial-gradient(ellipse at 50% 50%, rgba(59, 130, 246, 0.1), transparent 70%);
+    background: radial-gradient(ellipse at 68% 32%, rgba(59, 92, 150, 0.12), transparent 62%),
+                radial-gradient(ellipse at 28% 72%, rgba(34, 58, 104, 0.09), transparent 55%),
+                radial-gradient(ellipse at 50% 46%, rgba(15, 26, 56, 0.12), transparent 68%);
+}
+
+/* Viñeta sutil: profundidad cinematográfica manteniendo el centro oscuro y limpio */
+body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 4;
+    pointer-events: none;
+    background: radial-gradient(ellipse at 50% 46%, transparent 52%, rgba(0, 0, 3, 0.42) 100%);
 }
 
 
@@ -92,8 +102,9 @@ body.constellation-complete #celestial-map {
     opacity: 1;
 }
 
-/* Anomalía de Charlotte: se dibuja en el canvas (celestial.js) sujeta a
-   Géminis en su órbita; no hay HTML para ella. */
+/* La estrella especial se dibuja en el canvas (celestial.js) durante su viaje
+   desde Acuario hacia Géminis y, al llegar, integrada en la órbita de Géminis;
+   no hay HTML para ella (solo el nodo 14 de Acuario que la despide). */
 
 /* Universe master container: holds Acuario, zooms out at the finale */
 #universe-container {
@@ -146,8 +157,9 @@ body.constellation-complete #celestial-map {
     }
 }
 
-/* Estrella de Charlotte (anomalía): va dibujada en el canvas de celestial.js,
-   sujeta a la caja/giro de Géminis, por lo que aquí no hay HTML. */
+/* La estrella especial vive en el canvas de celestial.js: viaja desde el nodo
+   14 de Acuario y aterriza sobre la estrella 16 real de Géminis; aquí solo se
+   escenifica el "adiós" del nodo de origen (brillo y desvanecimiento). */
 
 /* Constellation SVG Lines */
 #constellation-lines {
@@ -435,7 +447,7 @@ body.constellation-complete #celestial-map {
     position: fixed;
     inset: 0;
     z-index: 50;
-    background: radial-gradient(circle at 50% 50%, rgba(14, 13, 34, 0.7) 0%, rgba(6, 6, 18, 0.84) 100%);
+    background: radial-gradient(circle at 50% 50%, rgba(3, 6, 16, 0.82) 0%, rgba(1, 2, 8, 0.92) 100%);
     backdrop-filter: blur(5px);
     -webkit-backdrop-filter: blur(5px);
     display: flex;
@@ -467,7 +479,7 @@ body.constellation-complete #celestial-map {
     position: absolute;
     inset: 0;
     z-index: 0;
-    background: radial-gradient(circle at 50% 50%, #0b0b1c 0%, #03030a 100%);
+    background: radial-gradient(circle at 50% 50%, #04060f 0%, #010208 100%);
     opacity: 1;
     transition: opacity 2.8s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -530,6 +542,47 @@ body.constellation-complete #celestial-map {
     background-color: rgba(224, 231, 255, 0.9);
     box-shadow: 0 0 7px rgba(190, 200, 240, 0.35);
     animation: dormantTwinkle 6s ease-in-out infinite;
+}
+
+/* La estrella elegida para el viaje: se enciende un instante en Acuario */
+.star-node.special-chosen {
+    pointer-events: none;
+}
+
+.star-node.special-chosen .star-point {
+    background-color: var(--accent-light);
+    box-shadow: 0 0 0 2px rgba(196, 181, 253, 0.5),
+                0 0 24px rgba(167, 139, 250, 0.95),
+                0 0 56px rgba(167, 139, 250, 0.45);
+    animation: specialPulse 1.5s ease-in-out forwards;
+}
+
+@keyframes specialPulse {
+    0% { transform: scale(1); opacity: 1; }
+    45% { transform: scale(1.9); opacity: 1; }
+    100% { transform: scale(1.4); opacity: 1; }
+}
+
+/* Justo antes de partir, su punto se desvanece: se la lleva el canvas. */
+.star-node.departed {
+    opacity: 0;
+    transform: scale(0.2);
+    pointer-events: none;
+    visibility: hidden;
+    transition: opacity 1.4s ease, transform 1.4s ease;
+}
+
+.star-node.departed .star-point,
+.star-node.departed .star-point::before,
+.star-node.departed .star-point::after {
+    box-shadow: none;
+    animation: none;
+}
+
+/* Durante el final, el resplandor general (.radiant) taparía el destello de la
+   estrella elegida; esta regla gana especificidad y mantiene su pulso propio. */
+#universe-container.radiant .star-node.special-chosen .star-point {
+    animation: specialPulse 1.5s ease-in-out forwards;
 }
 
 /* Modal Overlay & Card (Mobile first, safe-area aware) */
@@ -815,7 +868,9 @@ body.constellation-complete .star-node .star-point {
     .const-line,
     .star-node.dormant .star-point,
     .star-node.discovered .star-point,
-    .star-node.active {
+    .star-node.active,
+    .star-node.special-chosen .star-point,
+    .star-node.departed {
         animation: none !important;
         transition: none !important;
     }
