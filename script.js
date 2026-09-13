@@ -286,7 +286,8 @@
         // el cielo del canvas queda a la vista durante el resto de la travesía.
         if (phase === 'dawn') {
             if (backdrop) backdrop.classList.add('dim');
-            console.debug('[CINEMA] -> dawn (telón backdrop.dim)');
+            if (introOverlay) introOverlay.classList.add('cinema-fade');
+            console.debug('[CINEMA] -> dawn (telón: backdrop.dim + introOverlay.cinema-fade -> transparente 02.43→16s)');
         } else if (phase === 'approach' || phase === 'blackhole') {
             if (introOverlay) introOverlay.classList.add('cinema-clear');
             console.debug('[CINEMA] -> ' + phase + ' (telón introOverlay.cinema-clear) hole=' + cinema.conf.hole);

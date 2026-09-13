@@ -490,7 +490,20 @@ body.constellation-complete #celestial-map {
    dibujados en el canvas). La secuencia completa se sincroniza con la
    partitura real del tema (ver updateCinema/TIMELINE en script.js) y no se
    salta con un toque: la interacción abre al terminar naturalmente. */
-#intro-overlay.cinema-clear {
+#intro-overlay/* Desde el primer sonido (02.43) el velo deja de ser negro y, en 13.6 s,
+   su fondo y su blur se desvanecen por completo: a 016.00 el cielo del
+   canvas queda totalmente a la vista (el telón ya no oculta la travesía).
+   El overlay sigue ahí (captura el primer gesto; pointer-events no cambia)
+   pero ya nunca vuelve a opacar el cielo durante el resto de la experiencia. */
+#intro-overlay.cinema-fade {
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    transition: background 13.6s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 13.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.cinema-clear {
     background: transparent;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
