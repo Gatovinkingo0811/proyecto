@@ -37,17 +37,23 @@
  * Estrella especial (narrativa, sin etiquetas):
  *   - Nace en una de las 14 estrellas interactivas de Acuario (coordenadas de
  *     pantalla del DOM, ya transformadas por el zoom). Destaca en su sitio y,
- *     después, cruza el cielo con estela persiguiendo un punto REAL de Géminis:
- *     la estrella 16 de su figura (el pie, nodo real de zodiac-data.js). El
- *     destino se re-evalúa en CADA frame (la órbita nunca se detiene): la
- *     estrella persigue el nodo orbitante y la duración del viaje depende de la
- *     distancia (~4-7s). Al alcanzarlo se fusiona (destello sutil) y, desde ese
- *     instante, se coloca en cada frame en la posición orbital actual del nodo,
- *     conservando su color especial y sin coordenadas absolutas.
+ *     después, se desprende de Acuario y emprende un VIAJE por el cielo con
+ *     estela, en cuatro fases dentro del MISMO ciclo animate() (sin RAF extra):
+ *       1) SALIDA: se aleja del centro, despegando de su posición exacta.
+ *       2) VUELTAS: traza ~2 vueltas completas alrededor del zodíaco.
+ *       3) ACERCAMIENTO: deja la órbita y cierra gradualmente sobre un punto
+ *          REAL de Géminis: la estrella 16 de su figura (el pie, nodo real de
+ *          zodiac-data.js). El destino se re-evalúa en CADA frame (la órbita
+ *          nunca se detiene ni se reinicia): persigue el nodo orbitante.
+ *       4) INTEGRACIÓN: al alcanzarlo se fusiona (destello sutil) y, desde ese
+ *          instante, se coloca en cada frame en la posición orbital actual del
+ *          nodo, conservando su color especial y sin coordenadas absolutas.
+ *     La duración total es cinematográfica (~15s en escritorio) y se adapta a
+ *     móvil; Acuario queda visualmente con 13 estrellas (la nº14 es la viajera).
  *
- * Accesibilidad: con prefers-reduced-motion la órbita se detiene (velocidad 0)
- * y el viaje de la estrella especial se resuelve de forma casi instantánea,
- * manteniendo igualmente el estado narrativo final.
+ * Accesibilidad: con prefers-reduced-motion la trayectoria se resuelve casi
+ * instantánea manteniendo el estado narrativo final (órbita y viaje cortos);
+ * las animaciones CSS (resplandores, intro) también se reducen.
  *
  * API pública: window.CelestialSky
  *   .init(canvas)                  prepara el canvas y lanza la animación.
@@ -366,13 +372,25 @@
     // Destello/expansión de luz muy sutil al fusionarse con Géminis.
     let arrivalFx = null;
 
-    // Duración de viaje según la distancia visual (no rígida):
-    //   corta  (~1200px, móvil)      ≈ 4.0 s
-    //   media  (~1800-2200px)        ≈ 5-6 s
-    //   larga  (~2500px+, escritorio)≈ 6-7 s
-    function travelDurationFor(distPx) {
-        if (reducedMotion) return 1;
-        return Math.min(7000, Math.max(4000, Math.round(distPx * 2.45)));
+    // Fases del viaje narrativo de la estrella especial. NO es una ruta directa
+    // Acuario→Géminis: la estrella (1) se desprende de Acuario, (2) traza dos
+    // vueltas visibles alrededor del centro, (3) deja la órbita y persigue el
+    // nodo real 16 de Géminis mientras la figura sigue girando, y (4) se integra
+    // con un destello. Total ≈ 15s en escritorio: el cruce se ve de verdad.
+    const EXIT_DURATION = 1400;        // desprendimiento visible de Acuario
+    const ORBIT_TURNS = 2;             // dos vueltas completas alrededor del centro
+    const APPROACH_DURATION = 4000;    // cierre gradual sobre Géminis
+    const ORBIT_RING_FACTOR = 0.92;    // órbita interior al anillo de las 11
+    const TRAIL_MAX = 36;              // estela corta, nunca un cometa
+
+    // La duración de las vueltas se adapta a la pantalla (igual que el radio
+    // orbital): 2 vueltas ≈ 10s en escritorio, más compactas en móvil.
+    function journeyScale() {
+        return Math.max(0.75, Math.min(1.15, Math.min(sky.w, sky.h) / 700));
+    }
+
+    function orbitDurationFor() {
+        return reducedMotion ? 1 : Math.round(10000 * journeyScale());
     }
 
     function departStar(opts) {
@@ -386,20 +404,31 @@
             ? { destId: opts.destId, destIndex: Number(opts.destIndex) }
             : NARRATIVE_TARGET;
 
-        // Distancia inicial al nodo real: dimensiona la duración del viaje.
-        const firstDest = getStarScreenPosition(target.destId, target.destIndex);
-        const dist = firstDest ? Math.hypot(firstDest.x - fromX, firstDest.y - fromY) : 0;
+        // El vuelo arranca EXACTAMENTE en la posición visual de la estrella nº14
+        // de Acuario (px CSS del DOM, ya con el zoom aplicado). Sin salto inicial.
+        const ccx = sky.w / 2;
+        const ccy = sky.h / 2;
+        const ddx = fromX - ccx;
+        const ddy = fromY - ccy;
+        const startRadius = Math.hypot(ddx, ddy);
 
         travel = {
             fromX,
             fromY,
             destId: target.destId,
             destIndex: target.destIndex,
-            startedAt: performance.now(),
-            duration: travelDurationFor(dist),
-            // Posición de partida EXACTA (sin salto) + último destino conocido.
+            // Máquina de fases del trayecto (salida → vueltas → acercamiento).
+            phase: 'exit',
+            phaseStart: performance.now(),
+            startAngle: startRadius < 4 ? Math.PI / 2 : Math.atan2(ddy, ddx),
+            startRadius,
+            orbitStart: 0,
+            orbitStartAngle: 0,
+            approachStart: 0,
+            ringRadius: null,
+            // Posición de partida EXACTA (sin salto) + última referencia del nodo.
             pos: { x: fromX, y: fromY },
-            lastDest: firstDest,
+            lastDest: null,
             trail: [],
             onArrive: typeof opts.onArrive === 'function' ? opts.onArrive : null
         };
@@ -408,6 +437,12 @@
 
     function easeInOutQuad(t) {
         return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    }
+
+    // Salida enérgica: arranca rápido y decelera al incorporarse a la órbita
+    // (sensación de "desprender" la estrella de Acuario, no de arrastrarla).
+    function easeOutQuart(t) {
+        return 1 - Math.pow(1 - Math.min(1, t), 4);
     }
 
     // Estela tenue y delgada: una polilínea de recuerdos recientes, tonos
@@ -514,53 +549,129 @@
         ctx.restore();
     }
 
-    // Avanza el vuelo y dibuja la estrella especial. El destino se re-evalúa en
-    // CADA frame desde el orbitLayout actual: Géminis continúa girando mientras
-    // la estrella cruza el cielo, así que ella lo persigue sin puntos fijos ni
-    // teletransporte (interpolación con inercia y desaceleración al acercarse).
+    // Avanza cada fase del vuelo y dibuja la estrella especial. El destino se
+    // re-evalúa en CADA frame desde el orbitLayout actual: Géminis sigue girando
+    // mientras la estrella cruza el cielo, así que ella lo persigue sin puntos
+    // fijos ni teletransporte. Todas las fases viven dentro del MISMO ciclo
+    // animate() (sin loops ni RAF adicionales) y jamás tocan globalAngle: el
+    // zodíaco no se detiene ni se reinicia durante el viaje.
     function updateTravel(ctx) {
         const now = performance.now();
 
         if (travel) {
-            // 1) Posición ACTUAL del nodo real de Géminis en este mismo frame.
+            // 0) Posición ACTUAL del nodo real 16 de Géminis en este frame.
             const dest = getStarScreenPosition(travel.destId, travel.destIndex);
             const dx = dest ? dest.x : (travel.lastDest ? travel.lastDest.x : travel.fromX);
             const dy = dest ? dest.y : (travel.lastDest ? travel.lastDest.y : travel.fromY);
             if (dest) travel.lastDest = dest;
 
-            // 2) Progreso paramétrico: aceleración suave, crucero y desaceleración.
-            const t = Math.min(1, (now - travel.startedAt) / travel.duration);
-            const e = easeInOutQuad(t);
+            // Centro del cielo (donde reposa Acuario): referencia de la órbita.
+            const ccx = sky.w / 2;
+            const ccy = sky.h / 2;
 
-            // 3) Punto ideal sobre la ruta origen→destino ACTUAL de cada frame.
-            const sx = travel.fromX;
-            const sy = travel.fromY;
-            const px = sx + (dx - sx) * e;
-            const py = sy + (dy - sy) * e;
+            // Gran órbita: interior al anillo de las 11 (recorre una parte enorme
+            // del mapa, claramente visible, sin estorbar a las figuras).
+            if (!travel.ringRadius) {
+                travel.ringRadius = computeOrbitParams(sky.w, sky.h).orbitRadius * ORBIT_RING_FACTOR;
+            }
+            const ringR = travel.ringRadius;
+            const exitDur = reducedMotion ? 120 : EXIT_DURATION;
+            const approachDur = reducedMotion ? 200 : APPROACH_DURATION;
 
-            // 4) Inercia: la estrella tiende hacia ese punto sin giros bruscos.
-            const blend = 0.6;
-            travel.pos.x += (px - travel.pos.x) * blend;
-            travel.pos.y += (py - travel.pos.y) * blend;
-            const cx = travel.pos.x;
-            const cy = travel.pos.y;
+            let point;
+            const phase = travel.phase;
 
-            travel.trail.push({ x: cx, y: cy });
-            if (travel.trail.length > 24) travel.trail.shift();
+            if (phase === 'exit') {
+                // FASE 1 · SALIDA: la estrella se desprende de Acuario alejándose
+                // del centro, con una curva que la incorpora a la órbita. Parte de
+                // su posición EXACTA y permanece visible en todo momento.
+                const p = Math.min(1, (now - travel.phaseStart) / exitDur);
+                const e = easeOutQuart(p);
+                const angle = travel.startAngle + 0.7 * p;
+                const rad = travel.startRadius + (ringR - travel.startRadius) * e;
+                point = {
+                    x: ccx + Math.cos(angle) * rad,
+                    y: ccy + Math.sin(angle) * rad
+                };
+                if (p >= 1) {
+                    travel.phase = 'orbit';
+                    travel.orbitStart = now;
+                    travel.orbitStartAngle = angle;
+                }
+            } else if (phase === 'orbit') {
+                // FASE 2 · VUELTAS: dos vueltas completas alrededor del centro con
+                // un ligero vaivén de radio (orgánico, no robótico). Las 11 siguen
+                // girando en su propio anillo exactamente como siempre.
+                if (reducedMotion) {
+                    // Movimiento reducido: sin vueltas; el acercamiento toma el relevo.
+                    travel.phase = 'approach';
+                    travel.approachStart = now;
+                }
+                const duration = orbitDurationFor();
+                const vel = (2 * Math.PI * ORBIT_TURNS) / duration; // rad/ms
+                const t = now - travel.orbitStart;
+                const angle = travel.orbitStartAngle + vel * t;
+                const wobble = ringR * 0.045 *
+                    Math.sin(t * 0.0011) * Math.sin(t * 0.00023 + 1.7);
+                point = {
+                    x: ccx + Math.cos(angle) * (ringR + wobble),
+                    y: ccy + Math.sin(angle) * (ringR + wobble)
+                };
+                if (!reducedMotion && t >= duration) {
+                    travel.phase = 'approach';
+                    travel.approachStart = now;
+                }
+            } else {
+                // FASE 3 · ACERCAMIENTO: deja la órbita y cierra gradualmente sobre
+                // el nodo real en movimiento. Interpola entre el arco orbital y el
+                // destino ACTUAL de Géminis en cada frame → persecución continua,
+                // sin saltos ni coordenadas fijas.
+                const p = Math.min(1, (now - travel.approachStart) / approachDur);
+                const e = easeInOutQuad(p);
+
+                const duration = orbitDurationFor();
+                const vel = (2 * Math.PI * ORBIT_TURNS) / duration;
+                const t = now - travel.approachStart;
+                const aArc = travel.orbitStartAngle + vel * (duration + t);
+                const base = {
+                    x: ccx + Math.cos(aArc) * ringR,
+                    y: ccy + Math.sin(aArc) * ringR
+                };
+                point = {
+                    x: base.x + (dx - base.x) * e,
+                    y: base.y + (dy - base.y) * e
+                };
+            }
+
+            // Inercia: la estrella tiende hacia el punto de la fase sin giros
+            // bruscos (suaviza la trayectoria y refuerza la sensación de vuelo).
+            const blend = 0.65;
+            travel.pos.x += (point.x - travel.pos.x) * blend;
+            travel.pos.y += (point.y - travel.pos.y) * blend;
+            const sx = travel.pos.x;
+            const sy = travel.pos.y;
+
+            travel.trail.push({ x: sx, y: sy });
+            if (travel.trail.length > TRAIL_MAX) travel.trail.shift();
 
             drawTrail(ctx, travel.trail);
 
-            // 5) Fase de acercamiento: unión sutil conforme gana terreno.
-            const dToTarget = Math.hypot(dx - cx, dy - cy);
-            const approach = Math.max(0, Math.min(1, 1 - dToTarget / 180));
-            if (approach > 0) drawApproachLink(ctx, cx, cy, dx, dy, approach);
+            // Unión sutil solo durante la aproximación final.
+            const dToTarget = Math.hypot(dx - sx, dy - sy);
+            if (travel.phase === 'approach') {
+                const approach = Math.max(0, Math.min(1, 1 - dToTarget / 180));
+                if (approach > 0) drawApproachLink(ctx, sx, sy, dx, dy, approach);
+            }
 
-            drawTravelBody(ctx, cx, cy);
+            drawTravelBody(ctx, sx, sy);
 
-            // 6) Llegada: los puntos coinciden dentro del nodo destino real.
-            //    No hay relojes extra: se cierra cuando la inercia fusiona la
-            //    estrella con el nodo (destello + integración).
-            if (t >= 1 && dToTarget < 26) {
+            // FASE 4 · INTEGRACIÓN: se cierra cuando la estrella alcanza el nodo
+            // real (destello + fusión). Desde ese mismo frame vive pegada al 16 de
+            // Géminis, siguiéndolo en cada vuelta posterior.
+            const ap = (travel.phase === 'approach')
+                ? Math.min(1, (now - travel.approachStart) / approachDur)
+                : 0;
+            if (travel.phase === 'approach' && (ap >= 0.999 || dToTarget < 26)) {
                 const cb = travel.onArrive;
                 travel = null;
                 departed = true;
