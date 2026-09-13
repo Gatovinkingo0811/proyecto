@@ -712,14 +712,6 @@
         } catch (e) {}
     }
 
-    // Desbloqueo de audio en el primer toque en móvil
-    ['touchstart', 'pointerdown', 'click'].forEach(evtType => {
-        document.addEventListener(evtType, function unlockAudio() {
-            initAudio();
-            document.removeEventListener(evtType, unlockAudio);
-        }, { once: true, passive: true });
-    });
-
     // --- CIELO ESTRELLADO (CANVAS) ---
     let meteorShowerActive = false;
     let showerIntensity = 0;
@@ -1508,13 +1500,29 @@
     // Eventos de usuario
     // --- INTRO CINEMATOGRÁFICA ---
     // El velo negro se retira y el cielo del starfield recorre la travesía al
-    // agujero negro (ver updateCinema). Sin textos explicativos: la escena se
-    // muestra y el toque la salta cuando el usuario quiera.
+    // agujero negro (ver updateCinema). Sin textos explicativos. La experiencia
+    // espera en negro hasta el PRIMER toque; ahí arranca desde el principio y la
+    // intro se reproduce completa (no se puede saltar). Las estrellas no se
+    // tocan hasta que termina naturalmente en finishIntroToInteraction().
     const INTRO = {
         T_BACKDROP: 2200,   // el velo negro empieza a disiparse
         T_CLEAR: 2600,      // el telón se vuelve transparente: se ve el vuelo
         T_INTERACT: prefersReducedMotion ? 7000 : 45200
     };
+
+    // Reinicia la escena desde su origen: re-arranca el cine del agujero negro y
+    // la cuenta de la intro para que se vea completa.
+    function beginIntroFromStart() {
+        stopIntroTimers();
+        if (!prefersReducedMotion) {
+            cinema.active = true;
+            cinema.t0 = performance.now();
+            cinema.phase = 'hold';
+            cinema.birthSent = false;
+            document.body.classList.add('cinema-lock');
+        }
+        runIntro();
+    }
 
     function runIntro() {
         const backdrop = document.getElementById('intro-backdrop');
@@ -1554,17 +1562,25 @@
         hintElement.textContent = "Toca una estrella";
     }
 
-    // Un toque durante la introducción la salta sin romper la secuencia.
-    const skipIntro = (e) => {
-        if (e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-        finishIntroToInteraction();
+    // ÚNICA acción de inicio. El primer click/tap:
+    //   1) desbloquea el AudioContext,
+    //   2) inicia la música (fade-in),
+    //   3) comienza la experiencia desde el principio.
+    // No hay más listeners que escuchen ese mismo gesto: los antiguos
+    // desbloqueos globales y el salto de la intro se eliminaron. El guard
+    // experienceStarted impide que un doble evento (touchend + click) o un
+    // segundo toque provoquen una segunda transición.
+    let experienceStarted = false;
+    const beginExperience = (e) => {
+        if (experienceStarted) return;
+        experienceStarted = true;
+        if (e) e.preventDefault();
+        initAudio();
+        beginIntroFromStart();
     };
 
-    introOverlay.addEventListener('click', skipIntro);
-    introOverlay.addEventListener('touchend', skipIntro, { passive: false });
+    introOverlay.addEventListener('click', beginExperience);
+    introOverlay.addEventListener('touchend', beginExperience, { passive: false });
 
     modalCloseBtn.addEventListener('click', (e) => {
         e.preventDefault();
@@ -1602,17 +1618,15 @@
 
     // Iniciar aplicación
     function startApp() {
-        // La intro cinematográfica solo tiene movimiento con el viaje largo;
-        // prefers-reduced-motion se queda en la variante corta y estática.
-        if (!prefersReducedMotion) {
-            cinema.active = true;
-            cinema.t0 = performance.now();
-            document.body.classList.add('cinema-lock');
-        }
         setupStarfield();
         renderConstellation();
         if (window.CelestialSky && celestialMap) CelestialSky.init(celestialMap);
-        runIntro();
+        // La experiencia espera en negro (standby) hasta el PRIMER toque. Ese
+        // primer click/tap es la ÚNICA acción de inicio: desbloquea el audio,
+        // arranca la música y comienza la intro cinematográfica desde el
+        // principio (beginExperience en el listener del overlay). La intro se
+        // reproduce completa y las estrellas solo se activan en su final
+        // natural (finishIntroToInteraction vía INTRO.T_INTERACT).
     }
 
     // Atajo temporal para probar el final sin completar las 14 estrellas
