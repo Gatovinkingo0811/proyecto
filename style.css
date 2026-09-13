@@ -83,7 +83,7 @@ html, body {
     inset: 0;
     z-index: 2;
     pointer-events: none;
-    opacity: 0.35; /* Visible suavemente de fondo desde el inicio */
+    opacity: 0; /* El zodíaco no se muestra desde el inicio: se revela en el final */
     transition: opacity 2.4s ease 1s;
 }
 
@@ -459,87 +459,77 @@ body.constellation-complete #celestial-map {
     max-width: 480px;
 }
 
-/* Texto escenificado: cada frase aparece con su propio ritmo */
-.intro-staged {
+/* --- Intro: entrada progresiva y misteriosa (oscuridad → cielo → teaser) --- */
+
+/* Velo negro del comienzo: la pantalla arranca casi a oscuras y se disipa
+   despacio para que el cielo de fondo emerja poco a poco. */
+#intro-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background: radial-gradient(circle at 50% 50%, #0b0b1c 0%, #03030a 100%);
+    opacity: 1;
+    transition: opacity 2.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#intro-backdrop.dim {
+    opacity: 0;
+}
+
+/* El texto del teaser flota por encima del velo */
+#intro-overlay .intro-content {
+    position: relative;
+    z-index: 1;
+}
+
+/* Frases teaser: elegantes, tenues y sin revelar nada todavía */
+.intro-teaser {
     font-family: var(--font-serif);
     font-style: italic;
     color: var(--accent-light);
+    font-size: clamp(1.05rem, 3.6vw, 1.25rem);
+    letter-spacing: 0.06em;
+    line-height: 1.5;
     opacity: 0;
-    transform: translateY(14px);
-    text-shadow: 0 0 26px rgba(167, 139, 250, 0.5);
+    visibility: hidden;
+    transform: translateY(10px);
+    text-shadow: 0 0 24px rgba(167, 139, 250, 0.45);
+    transition: opacity 1.8s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 1.8s cubic-bezier(0.16, 1, 0.3, 1),
+                visibility 1.8s ease;
 }
 
-#intro-line-1 {
-    font-size: clamp(1.3rem, 4.8vw, 1.55rem);
-    letter-spacing: 0.05em;
-    margin-bottom: 16px;
-    animation: introFadeIn 1.9s cubic-bezier(0.16, 1, 0.3, 1) 0.9s both;
+.intro-teaser.on {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
 }
 
-#intro-line-2 {
-    font-size: clamp(1.05rem, 3.8vw, 1.2rem);
-    letter-spacing: 0.03em;
-    max-width: 30ch;
-    margin: 0 auto 28px auto;
-    line-height: 1.6;
-    animation: introFadeIn 1.9s cubic-bezier(0.16, 1, 0.3, 1) 2.6s both;
+#intro-teaser-1 {
+    margin-bottom: 20px;
 }
 
-@keyframes introFadeIn {
-    0% {
-        opacity: 0;
-        transform: translateY(14px);
-    }
-    100% {
-        opacity: 1;
-        transform: translateY(0);
-    }
+/* Durante la oscuridad inicial la constelación no está formada: las estrellas
+   están presentes en sus posiciones correctas pero apagadas hasta su turno. */
+.star-node.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 1.1s ease, visibility 1.1s ease;
 }
 
-.intro-title {
-    font-family: var(--font-serif);
-    font-size: clamp(2.8rem, 10vw, 4.2rem);
-    font-weight: 300;
-    letter-spacing: 0.12em;
-    color: #ffffff;
-    text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
-    margin-bottom: 24px;
-    animation: introTitleIn 1.9s cubic-bezier(0.16, 1, 0.3, 1) 4.4s both;
+/* Insinuación sutil antes de la interacción: un puñado de destellos tenues
+   (misma geometría real de Acuario) que no revelan la figura completa. */
+.star-node.revealed {
+    pointer-events: none;
 }
 
-@keyframes introTitleIn {
-    0% {
-        opacity: 0;
-        transform: translateY(10px) scale(0.96);
-        letter-spacing: 0.3em;
-    }
-    100% {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-        letter-spacing: 0.12em;
-    }
-}
-
-.intro-line {
-    width: 60px;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, var(--accent-violet), transparent);
-    margin: 0 auto 28px auto;
-    animation: introFadeIn 1.6s ease 5.6s both;
-}
-
-.intro-hint {
-    font-family: var(--font-sans);
-    font-size: 0.85rem;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: rgba(224, 212, 255, 0.7);
-    animation: introFadeIn 1.6s ease 6.0s both, pulseSlow 2.5s ease-in-out 6.8s infinite;
-}
-
-@keyframes pulseSlow {
-    0%, 100% { opacity: 0.75; transform: translateY(0); }
-    50% { opacity: 1; transform: translateY(-3px); }
+.star-node.revealed .star-point {
+    width: 6px;
+    height: 6px;
+    background-color: rgba(224, 231, 255, 0.9);
+    box-shadow: 0 0 7px rgba(190, 200, 240, 0.35);
+    animation: dormantTwinkle 6s ease-in-out infinite;
 }
 
 /* Modal Overlay & Card (Mobile first, safe-area aware) */
@@ -830,14 +820,15 @@ body.constellation-complete .star-node .star-point {
         transition: none !important;
     }
 
-    /* La introducción debe quedar visible aunque no se anime */
-    #intro-line-1,
-    #intro-line-2,
-    .intro-title,
-    .intro-line,
-    .intro-hint {
-        opacity: 1 !important;
-        transform: none !important;
+    /* La introducción aparece sin movimientos largos: el velo se levanta al
+       instante y las frases hacen fade simple. */
+    #intro-backdrop,
+    .intro-teaser {
+        transition: none !important;
         animation: none !important;
+    }
+
+    #intro-backdrop {
+        opacity: 0 !important;
     }
 }

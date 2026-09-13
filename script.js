@@ -174,6 +174,18 @@
     let audioCtx = null;
     let lastInteractionTime = 0;
     let finaleStarted = false;
+    let interactionStarted = false;
+
+    // --- INTRO PROGRESIVO (oscuridad → cielo → teaser → interacción) ---
+    // Un puñado de estrellas reales de Acuario se insinúa antes de interactuar,
+    // sin llegar a formar la figura. El resto permanece apagado hasta su turno.
+    const introPreviewIds = new Set([1, 2, 8]);
+    let introTimers = [];
+
+    function stopIntroTimers() {
+        introTimers.forEach(clearTimeout);
+        introTimers = [];
+    }
 
     // Elementos del DOM
     const starsContainer = document.getElementById('stars-container');
@@ -664,13 +676,19 @@
 
             const isDiscovered = discoveredStars.has(star.id);
             const isActive = star.id === currentActiveId;
+            const isPreview = !interactionStarted && introPreviewIds.has(star.id);
 
+            // Antes de la interacción solo se insinúa un puñado de estrellas;
+            // el resto queda apagado e invisible. Al interactuar, solo la
+            // estrella activa brilla esperando su turno y se enciende al tocar.
             if (isDiscovered) {
                 node.classList.add('discovered');
+            } else if (!interactionStarted && isPreview) {
+                node.classList.add('revealed');
             } else if (isActive) {
                 node.classList.add('active');
             } else {
-                node.classList.add('dormant');
+                node.classList.add('dormant', 'hidden');
             }
 
             node.innerHTML = `
@@ -908,22 +926,73 @@
 
 
     // Eventos de usuario
-    const dismissIntro = (e) => {
-        if (e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
+    // --- INTRO PROGRESIVO ---
+    // Secuencia automática y no interactiva:
+    //   0s       todo a oscuras (el velo cubre el cielo)
+    //   1.8s     el velo negro se disipa: las estrellas de fondo emergen despacio
+    //   3.6s     primera insinuación: "Hay algo entre las estrellas…"
+    //   5.4s     se desvanece
+    //   5.9s     "Descúbrelo."
+    //   7.3s     se desvanece → "Empieza por una estrella" y empieza la interacción
+    function runIntro() {
+        const backdrop = document.getElementById('intro-backdrop');
+        const tease1 = document.getElementById('intro-teaser-1');
+        const tease2 = document.getElementById('intro-teaser-2');
+
+        const step = (t, fn) => introTimers.push(setTimeout(fn, t));
+
+        step(1800, () => {
+            if (backdrop) backdrop.classList.add('dim');
+        });
+        step(3600, () => {
+            if (tease1) tease1.classList.add('on');
+        });
+        step(5400, () => {
+            if (tease1) tease1.classList.remove('on');
+        });
+        step(5900, () => {
+            if (tease2) tease2.classList.add('on');
+        });
+        step(7300, () => {
+            if (tease2) tease2.classList.remove('on');
+        });
+        step(7700, finishIntroToInteraction);
+    }
+
+    // Cierra el telón y abre la interacción: solo la estrella activa brilla.
+    function finishIntroToInteraction() {
+        if (interactionStarted) return;
+        stopIntroTimers();
+        interactionStarted = true;
+
         initAudio();
         triggerHaptic('light');
         playIntroSparkle();
+
         introOverlay.classList.add('fade-out');
         setTimeout(() => {
             introOverlay.style.display = 'none';
         }, 1200);
+
+        renderConstellation();
+        setInteractionHint();
+    }
+
+    function setInteractionHint() {
+        hintElement.textContent = "Empieza por una estrella";
+    }
+
+    // Un toque durante la introducción la salta sin romper la secuencia.
+    const skipIntro = (e) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        finishIntroToInteraction();
     };
 
-    introOverlay.addEventListener('click', dismissIntro);
-    introOverlay.addEventListener('touchend', dismissIntro, { passive: false });
+    introOverlay.addEventListener('click', skipIntro);
+    introOverlay.addEventListener('touchend', skipIntro, { passive: false });
 
     modalCloseBtn.addEventListener('click', (e) => {
         e.preventDefault();
@@ -951,13 +1020,14 @@
         setupStarfield();
         renderConstellation();
         if (window.CelestialSky && celestialMap) CelestialSky.init(celestialMap);
-        updateProgress();
+        runIntro();
     }
 
     // Atajo temporal para probar el final sin completar las 14 estrellas
     const goFinalBtn = document.getElementById('go-final');
     if (goFinalBtn) {
         goFinalBtn.addEventListener('click', () => {
+            stopIntroTimers();
             introOverlay.style.display = 'none';
             isModalOpen = false;
             modalOverlay.classList.remove('open');
