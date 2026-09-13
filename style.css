@@ -487,7 +487,9 @@ body.constellation-complete #celestial-map {
 
 /* Intro cinematográfica: una vez retirado el velo, el telón se vuelve
    transparente para dejar ver el cielo (estrellas, polvo y el agujero negro
-   dibujados en el canvas). El salto con un toque sigue intacto. */
+   dibujados en el canvas). La secuencia completa se sincroniza con la
+   partitura real del tema (ver updateCinema/TIMELINE en script.js) y no se
+   salta con un toque: la interacción abre al terminar naturalmente. */
 #intro-overlay.cinema-clear {
     background: transparent;
     backdrop-filter: none;
@@ -953,18 +955,15 @@ body.constellation-complete .star-node .star-point {
         transition: none !important;
     }
 
-    /* La introducción aparece sin movimientos largos: el velo se levanta al
-       instante y las frases hacen fade simple. */
+    /* La introducción se comprime (la secuencia se ve pero acelerada) y las
+       frases hacen fade simple. El velo lo controla la cinemática (nunca se
+       abre la interacción con un salto: ver finishCinematic en script.js). */
     #intro-backdrop,
     .intro-teaser,
     #finale-continue,
     #finale-content.gone {
         transition: none !important;
         animation: none !important;
-    }
-
-    #intro-backdrop {
-        opacity: 0 !important;
     }
 
     #finale-continue.show {

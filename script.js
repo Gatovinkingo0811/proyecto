@@ -176,7 +176,19 @@
     let audioCtx = null;
     let lastInteractionTime = 0;
     let finaleStarted = false;
-    let interactionStarted = false;
+
+    // Estados separados de la experiencia (NO deben mezclarse):
+    //  - audioUnlocked: el AudioContext se desbloqueó (1er gesto); NO significa
+    //    que la cinemática terminó.
+    //  - cinematicStarted: la travesía visual comenzó (arranca con el audio).
+    //  - cinematicFinished: el cine completó SU secuencia completa (negro →
+    //    sonido → espacio → agujero negro → entrada → vacío → renacimiento de
+    //    Acuario). Solo aquí se abre la interacción.
+    //  - interactionReady: las 14 estrellas son visibles y tocables.
+    let audioUnlocked = false;
+    let cinematicStarted = false;
+    let cinematicFinished = false;
+    let interactionReady = false;
     // La estrella nº14 ya partió hacia Géminis: Acuario pasa de 14 a 13 nodos.
     let specialDeparted = false;
 
@@ -185,9 +197,8 @@
     let anomalyStarted = false;
 
     // --- INTRO CINEMATOGRÁFICA (negro → agujero negro → universo nuevo) ---
-    // Un puñado de estrellas reales de Acuario se insinúa antes de interactuar,
-    // sin llegar a formar la figura. El resto permanece apagado hasta su turno.
-    const introPreviewIds = new Set([1, 2, 8]);
+    // Las estrellas nacen una a una en su fase de "nacimiento" y no son
+    // tocables hasta el fin natural del cine (interactionReady).
     let introTimers = [];
 
     function stopIntroTimers() {
@@ -195,23 +206,39 @@
         introTimers = [];
     }
 
-    // --- INTRO CINEMATOGRÁFICA (agujero negro → universo nuevo) ---
-    // El cielo de fondo (canvas del starfield) recorre fases mientras el telón
-    // de la introducción se retira: negro → polvo y estrellas lejanas →
-    // acercamiento → agujero negro creciendo (lente gravitacional) → entrada →
-    // vacío → el nuevo universo nace y Acuario aparece estrella a estrella.
-    // Todo ocurre DENTRO del único ciclo del starfield (sin RAF adicionales, sin
-    // elementos nuevos): el canvas dibuja el viaje y las estrellas DOM ya
-    // existentes se revelan en su orden real. Sin textos explicativos.
-    const CINEMA = {
-        HOLD: 2600,             // negro (el velo del overlay todavía cubre)
-        APPROACH_END: 11000,    // estrellas lejanas y polvo muy lentos
-        HOLE_GROW_END: 19000,   // el agujero negro crece y dobla la luz
-        HOLE_BRIGHT_END: 27500, // disco brillante, lente completa
-        ENTRANCE_END: 31500,    // la cámara entra al agujero (todo converge)
-        VOID_END: 35000,        // vacío: negro puro, un respiro
-        BIRTH_END: 44000        // universo nuevo: capas + Acuario progresa
+    // --- INTRO CINEMATOGRÁFICA Sincronizada a la partitura real ---
+    // La música es el reloj maestro. TIMELINE guarda los segundos del tema
+    // (0 = inicio del MP3, duración 244.008 s = 4:04.01) donde ocurren los
+    // grandes eventos visuales, tomados del análisis musical real:
+    //   00:00.00 silencio · 00:02.43 primer sonido · 00:16 capa armónica ·
+    //   00:41.15 fin de intro · 01:50.44 buildup con el agujero negro ·
+    //   02:17.24 entrada/al clímax 1 · 02:27.19 vacío · 02:40.47 nacen las
+    //   14 estrellas de Acuario (sin salto: geometría real preservada).
+    // Con prefers-reduced-motion la secuencia se COMPRIME proporcionalmente
+    // (rmScale) pero SIEMPRE se ejecuta completa: nunca un salto a los puntos.
+    // updateCinema() avanza con ExperienceMusic.now() y un reloj local de
+    // respaldo, jamás con un temporizador de 44 s.
+    const TIMELINE = {
+        firstSound: 2.43,       // primer sonido: nacen partículas muy sutiles
+        harmony: 16.00,         // capa armónica: el espacio aparece
+        introPeak: 41.15,       // fin de la intro / techo inicial
+        build: 110.44,          // comienza el gran buildup: aquí nace el agujero
+        grow: 118.10,           // el agujero negro crece y dobla la luz
+        approach: 120.90,       // acercamiento intensificado al horizonte
+        entryPrep: 134.55,      // preparar la entrada (onset 02:14.55)
+        entry: 137.24,          // CLÍMAX 1: la cámara entra (convergencia)
+        void: 147.19,           // breakdown: vacío profundo (energía cae ~91%)
+        reentry: 159.23,        // comienza la reentrada
+        birthStart: 160.47,     // gran onset: Acuario nace progresivamente
+        birthEnd: 169.17,       // el universo nuevo está completo
+        interactionOpen: 171.5  // fin del cine: se tocan las 14 estrellas
     };
+
+    // Comprime la travesía si el usuario pide explícitamente menos movimiento
+    // (0.42× ≈ 72 s). La secuencia NUNCA se salta: solo se acelera.
+    function rmScale() {
+        return prefersReducedMotion ? 0.42 : 1;
+    }
     // Orden suave de nacimiento de Acuario (del borde del ánfora hacia el 14).
     const BIRTH_REVEAL_ORDER = [1, 8, 2, 3, 12, 4, 5, 6, 9, 11, 10, 7, 13, 14];
 
@@ -238,11 +265,12 @@
         return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
     }
 
-    const cinemaLockedPhases = ['hold', 'approach', 'blackhole', 'entrance', 'void'];
+    const cinemaLockedPhases = ['hold', 'dawn', 'approach', 'blackhole', 'entrance', 'void'];
 
     // Reacciones de la escena al cambiar de fase (una vez por transición).
     function onCinemaPhase(phase) {
         const nebulaEl = document.getElementById('nebula');
+        const backdrop = document.getElementById('intro-backdrop');
         const M = window.ExperienceMusic;
 
         // Durante la travesía, Acuario permanece latente (ni líneas ni estrellas
@@ -253,9 +281,20 @@
             document.body.classList.remove('cinema-lock');
         }
 
-        if (phase === 'hold' || phase === 'void') {
-            if (nebulaEl) nebulaEl.style.opacity = '0';
-            if (phase === 'void' && M) M.duck(true, 1.4); // respiro musical en el vacío
+        // El velo negro se retira cuando suena el primer sonido (02.43) y el
+        // telón se vuelve transparente cuando entra la capa armónica (16.00):
+        // el cielo del canvas queda a la vista durante el resto de la travesía.
+        if (phase === 'dawn') {
+            if (backdrop) backdrop.classList.add('dim');
+        } else if (phase === 'approach' || phase === 'blackhole') {
+            if (introOverlay) introOverlay.classList.add('cinema-clear');
+        }
+
+        if (phase === 'hold' || phase === 'void' || phase === 'dawn') {
+            if (nebulaEl) nebulaEl.style.opacity = phase === 'void' ? '0' : '0';
+            if (phase === 'void' && M) M.duck(true, 1.4); // la música cae al vacío
+        } else if (phase === 'entrance') {
+            if (nebulaEl) nebulaEl.style.opacity = '0.08';
         } else if (phase === 'birth' || phase === 'done') {
             if (nebulaEl) nebulaEl.style.opacity = '0.55';
             if (M) M.duck(false, 2.4); // el universo nuevo nace: la música vuelve
@@ -271,7 +310,9 @@
 
     // El universo nuevo: las estrellas de Acuario aparecen una a una (misma
     // geometría real, sin nodos nuevos). Primero se apagan todas para partir de
-    // cielo vacío y luego se encienden en orden suave.
+    // cielo vacío y luego se encienden en orden suave DENTRO de la ventana
+    // musical [birthStart, birthEnd] (02:40.47 → 02:49.17). Con
+    // prefers-reduced-motion el revelado se comprime igual que el cine.
     function scheduleBirthReveal() {
         Array.prototype.forEach.call(
             document.querySelectorAll('#stars-container .star-node'),
@@ -280,27 +321,74 @@
                 n.classList.remove('revealed');
             }
         );
+        const m = rmScale();
+        const stepMs = 620 * m;
+        const startMs = 400 * m;
         BIRTH_REVEAL_ORDER.forEach((id, i) => {
             introTimers.push(setTimeout(() => {
                 const node = document.getElementById('star-node-' + id);
                 if (!node) return;
                 node.classList.remove('hidden');
                 node.classList.add('revealed');
-            }, 500 + i * 620));
+            }, startMs + i * stepMs));
         });
     }
 
-    // Avanza las fases del cine con tiempo real (igual que la órbita y el viaje
-    // de la estrella especial: sin dependencia del FPS). Rellena cinema.conf con
-    // la configuración del frame para que el render del canvas la consuma.
-    function updateCinema(now) {
-        if (interactionStarted) {
+    // Tiempo narrativo del cine. Prioridad total al reloj REAL de la música
+    // (ExperienceMusic.now(), segundos desde el inicio del tema). Si el audio
+    // no está sonando (sin archivo, autoplay bloqueado o cargando), se usa un
+    // reloj local monótono equivalente que arranca con el cine (mismo toque).
+    // La interacción con las estrellas NO está ligada a este reloj: solo abre
+    // cuando TIMELINE.interactionOpen se alcanza → finishCinematic().
+    function cinematicSeconds() {
+        const M = window.ExperienceMusic;
+        if (M && typeof M.isPlaying === 'function' && M.isPlaying()) {
+            const audioT = (typeof M.now === 'function') ? M.now() : -1;
+            if (audioT >= 0) return audioT;
+        }
+        return (performance.now() - cinema.t0) / 1000;
+    }
+
+    // Mientras la partitura suena, el reloj maestro de la música puede estar
+    // disparando hitos (crescendo, fade final). El starfield en modo estático
+    // debe permanecer encendido para drenar esos eventos (flush() vive en el
+    // bucle); se apaga en cuanto el tema deja de sonar.
+    function musicStillRelevant() {
+        const M = window.ExperienceMusic;
+        return !!(M && typeof M.isPlaying === 'function' && M.isPlaying());
+    }
+
+    // Avanza las fases del cine con el tiempo REAL de la música (0 = inicio del
+    // tema; 244.008 s = 4:04.01). Rellena cinema.conf con la configuración del
+    // frame para el render del canvas: negro silencioso → primeras partículas →
+    // espacio profundo → agujero negro creciendo (lente) → entrada al horizonte
+    // (convergencia) → vacío → renacimiento de Acuario. Todo DENTRO del único
+    // ciclo del starfield. Sin temporizadores de 44 s: el reloj es la partitura.
+    function updateCinema() {
+        if (cinematicFinished) {
             if (cinema.active) cinema.active = false;
             return;
         }
         if (!cinema.active) return;
 
-        const t = now - cinema.t0;
+        const t = cinematicSeconds();
+        const m = rmScale();
+        const T = TIMELINE;
+        // Puntos de la partitura (escalados si el usuario pide poco movimiento).
+        const firstSound = T.firstSound * m;
+        const harmony = T.harmony * m;
+        const introPeak = T.introPeak * m;
+        const build = T.build * m;
+        const grow = T.grow * m;
+        const approachAt = T.approach * m;
+        const entryPrep = T.entryPrep * m;
+        const entry = T.entry * m;
+        const voidAt = T.void * m;
+        const reentry = T.reentry * m;
+        const birthStart = T.birthStart * m;
+        const birthEnd = T.birthEnd * m;
+        const interactionOpen = T.interactionOpen * m;
+
         const conf = cinema.conf;
         const w = window.innerWidth;
         const h = window.innerHeight;
@@ -319,57 +407,128 @@
         let lm = 0;
         let ln = 0;
 
-        if (t < CINEMA.HOLD) {
+        const lerp = (a, b, p) => a + (b - a) * Math.max(0, Math.min(1, p));
+        const seg = (start, end) => (t - start) / (end - start);
+
+        if (t < firstSound) {
+            // 00:00.00–00:02.43 · Silencio inicial: pantalla prácticamente negra.
             phase = 'hold';
-        } else if (t < CINEMA.APPROACH_END) {
+            lf = 0.02;
+            lm = 0.01;
+            ln = 0.005;
+        } else if (t < harmony) {
+            // 00:02.43–00:16.00 · Primer sonido: nacen estrellas/partículas
+            // extremadamente sutiles y el espacio empieza a aparecer.
+            phase = 'dawn';
+            lf = lerp(0.02, 0.22, seg(firstSound, harmony));
+            lm = lerp(0.01, 0.08, seg(firstSound, harmony));
+            ln = lerp(0.005, 0.03, seg(firstSound, harmony));
+        } else if (t < introPeak) {
+            // 00:16.00–00:41.15 · Capa armónica: aumentar profundidad y cantidad.
             phase = 'approach';
-            const p = (t - CINEMA.HOLD) / (CINEMA.APPROACH_END - CINEMA.HOLD);
-            lf = 0.06 + p * 0.75;
-            lm = p * 0.30;
-            ln = p * 0.12;
-        } else if (t < CINEMA.HOLE_GROW_END) {
+            lf = lerp(0.22, 0.5, seg(harmony, introPeak));
+            lm = lerp(0.08, 0.3, seg(harmony, introPeak));
+            ln = lerp(0.03, 0.15, seg(harmony, introPeak));
+            scale = 1 - 0.02 * seg(harmony, introPeak);
+        } else if (t < build) {
+            // 00:41.15–01:50.44 · Desarrollo: acercamiento progresivo al espacio
+            // profundo. Aún NO se muestra la constelación completa.
+            phase = 'approach';
+            lf = lerp(0.5, 0.68, seg(introPeak, build));
+            lm = lerp(0.3, 0.5, seg(introPeak, build));
+            ln = lerp(0.15, 0.3, seg(introPeak, build));
+            scale = 1 - 0.1 * seg(introPeak, build);
+        } else if (t < grow) {
+            // 01:50.44–01:58.10 · Comienza el gran buildup: nace el agujero negro
+            // y crece progresivamente.
             phase = 'blackhole';
-            const p = (t - CINEMA.APPROACH_END) / (CINEMA.HOLE_GROW_END - CINEMA.APPROACH_END);
+            const p1 = seg(build, grow);
             hole = true;
-            lens = p;
-            ring = p;
-            disc = p * 0.7;
+            lens = lerp(0, 0.55, p1);
+            ring = lerp(0, 0.55, p1);
+            disc = lerp(0, 0.45, p1);
             lf = 0.62;
-            lm = 0.5 * p;
-            ln = 0.28 * p;
-        } else if (t < CINEMA.HOLE_BRIGHT_END) {
+            lm = 0.5 * p1;
+            ln = 0.26 * p1;
+        } else if (t < approachAt) {
+            // 01:58.10–02:00.90 · El agujero crece y empieza a doblar la luz.
             phase = 'blackhole';
-            const p = (t - CINEMA.HOLE_GROW_END) / (CINEMA.HOLE_BRIGHT_END - CINEMA.HOLE_GROW_END);
+            const p2 = seg(grow, approachAt);
             hole = true;
-            lens = 1;
-            ring = 1;
-            disc = 0.7 + p * 0.3;
+            lens = lerp(0.55, 0.95, p2);
+            ring = lerp(0.55, 0.95, p2);
+            disc = lerp(0.45, 0.8, p2);
             lf = 0.62;
-            lm = 0.6;
-            ln = 0.4;
-        } else if (t < CINEMA.ENTRANCE_END) {
-            phase = 'entrance';
-            const p = (t - CINEMA.HOLE_BRIGHT_END) / (CINEMA.ENTRANCE_END - CINEMA.HOLE_BRIGHT_END);
+            lm = lerp(0.5, 0.7, p2);
+            ln = lerp(0.26, 0.46, p2);
+        } else if (t < entryPrep) {
+            // 02:00.90–02:14.55 · Acercamiento intensificado: caída hacia el disco.
+            phase = 'approach';
+            const p3 = seg(approachAt, entryPrep);
             hole = true;
             lens = 1;
             ring = 1;
             disc = 1;
-            scale = 1 - 0.88 * cinemaEase(p);
-            black = p;
+            scale = 1 - 0.28 * cinemaEase(p3);
             lf = 0.62;
+            lm = 0.6;
+            ln = 0.4;
+        } else if (t < entry) {
+            // 02:14.55–02:17.24 · Onset fuerte: preparar la entrada al horizonte.
+            phase = 'approach';
+            const p4 = seg(entryPrep, entry);
+            hole = true;
+            lens = 1;
+            ring = 1;
+            disc = 1;
+            scale = 1 - 0.36 * cinemaEase(p4);
+            lf = 0.6;
+            lm = 0.55;
+            ln = 0.35;
+        } else if (t < voidAt) {
+            // 02:17.24–02:27.19 · CLÍMAX 1: LA CÁMARA ENTRA. Convergencia,
+            // distorsión, movimiento hacia el centro y pérdida del espacio
+            // anterior (escala → 0.06, fundido a negro).
+            phase = 'entrance';
+            const p5 = seg(entry, voidAt);
+            hole = true;
+            lens = 1;
+            ring = 1;
+            disc = 1;
+            scale = 1 - 0.94 * cinemaEase(p5);
+            black = p5;
+            lf = 0.6;
             lm = 0.5;
             ln = 0.3;
-        } else if (t < CINEMA.VOID_END) {
+        } else if (t < reentry) {
+            // 02:27.19–02:39.23 · BREAKDOWN/vacío de transición: casi negro,
+            // muy pocas partículas, sensación de vacío. Sin Acuario todavía.
             phase = 'void';
             black = 1;
-        } else if (t < CINEMA.BIRTH_END) {
+            lf = 0.02;
+            lm = 0.01;
+            ln = 0;
+        } else if (t < birthStart) {
+            // 02:39.23–02:40.47 · Comienza la reentrada: el vacío empieza a ceder.
+            phase = 'void';
+            const p6 = seg(reentry, birthStart);
+            black = lerp(1, 0.88, p6);
+            lf = lerp(0.02, 0.12, p6);
+            lm = lerp(0.01, 0.05, p6);
+            ln = 0;
+        } else if (t < birthEnd) {
+            // 02:40.47–02:49.17 · NACIMIENTO: el nuevo universo emerge y Acuario
+            // aparece estrella a estrella (revelado real, sin un salto).
             phase = 'birth';
-            const p = Math.min(1, (t - CINEMA.VOID_END) / (CINEMA.BIRTH_END - CINEMA.VOID_END));
-            lf = p;
-            lm = Math.max(0, (p - 0.18) / 0.82);
-            ln = Math.max(0, (p - 0.4) / 0.6);
+            const p7 = seg(birthStart, birthEnd);
+            black = lerp(0.88, 0, p7);
+            lf = lerp(0.12, 1, Math.min(1, p7 * 1.1));
+            lm = lerp(0.05, 1, Math.max(0, (p7 - 0.2) / 0.8));
+            ln = Math.max(0, (p7 - 0.42) / 0.58);
         } else {
+            // 02:49.17+ · Cielo pleno; el cine se cierra en interactionOpen.
             phase = 'done';
+            black = 0;
             lf = 1;
             lm = 1;
             ln = 1;
@@ -381,7 +540,7 @@
         conf.disc = disc;
         conf.ring = ring;
         conf.scale = scale;
-        conf.holeR = baseR * (0.15 + ring * 0.85);
+        conf.holeR = baseR * (0.16 + ring * 0.84);
         conf.layers.far = lf;
         conf.layers.mid = lm;
         conf.layers.near = ln;
@@ -389,6 +548,13 @@
         if (cinema.phase !== phase) {
             cinema.phase = phase;
             onCinemaPhase(phase);
+        }
+
+        // Fin natural del cine: el universo nuevo ya nació. Es el ÚNICO punto en
+        // el que se habilita la interacción con las 14 estrellas (finishCinematic
+        // es idempotente). Un segundo gesto NUNCA salta la travesía.
+        if (t >= interactionOpen) {
+            finishCinematic();
         }
     }
 
@@ -511,10 +677,12 @@
         }
         // Contexto compartido con la música (music.js) para no crear duplicados.
         window.__sharedAudioCtx = window.__sharedAudioCtx || audioCtx;
-        // La banda sonora arranca aquí, tras la primera interacción del usuario.
+        // La banda sonora arranca aquí. Esto es SOLO el desbloqueo de audio: no
+        // termina la cinemática ni abre la interacción (estados separados).
         if (window.ExperienceMusic) {
             window.ExperienceMusic.unlock();
         }
+        audioUnlocked = true;
     }
 
     // Tono celestial propio y único para cada estrella
@@ -851,12 +1019,9 @@
         // del cielo, por encima de cualquier meteoro).
         function manageMeteors(now) {
             if (prefersReducedMotion) return;
-            // Durante la travesía al agujero negro no caen meteoros: solo en el
-            // cielo ya revelado.
-            if (cinema.active &&
-                (cinema.phase === 'hold' || cinema.phase === 'entrance' || cinema.phase === 'void')) {
-                return;
-            }
+            // Durante la travesía cinematográfica no caen meteoros: el agujero
+            // negro y el nacimiento de Acuario son lo único que importa.
+            if (cinema.active) return;
             if (meteorShowerActive) {
                 const cadence = showerIntensity >= 2 ? 1000 : 1700;
                 if (now - lastMeteorSpawn >= cadence && shootingStars.length < 8) {
@@ -1027,29 +1192,44 @@
                 ctx.globalAlpha = 1;
             }
 
-            if (prefersReducedMotion || document.hidden) {
-                rafId = null;
-                return; // cielo estático o pestaña en segundo plano
+            if (!document.hidden) {
+                // En modo estático (prefers-reduced-motion) el cielo se congela
+                // cuando no hay nada que dibujar EN MOVIMIENTO; el bucle solo se
+                // mantiene ENCENDIDO mientras corre la cinemática o suena la
+                // música (porque el reloj maestro flush() vive dentro de este
+                // frame y debe seguir disparando los hitos de la partitura,
+                // incluido el crescendo y el fade del final). Al callar el tema,
+                // el frame se detiene y el universo queda como pintura quieta.
+                if (prefersReducedMotion && !cinema.active && !musicStillRelevant()) {
+                    rafId = null;
+                    return;
+                }
+                rafId = requestAnimationFrame(render);
             }
-            rafId = requestAnimationFrame(render);
         }
 
         function startRender() {
             if (rafId) return;
-            if (prefersReducedMotion) return;
-            skyRevealStart = performance.now();
             lastTime = performance.now();
             rafId = requestAnimationFrame(render);
         }
 
-        // Con prefers-reduced-motion se pinta un cielo estático una sola vez.
+        // Puerta de arranque compartida: startCinematic() la invoca para que el
+        // bucle del starfield se encienda también en modo estático (donde el
+        // render() por sí mismo se detiene al no haber cine activo).
+        window.__kickStarfield = function () {
+            if (prefersReducedMotion) skyReveal = 1;
+            startRender();
+        };
+
+        // Con prefers-reduced-motion se pinta un cielo estático una sola vez (el
+        // bucle queda a la espera de una cinemática; al terminar se detiene).
         if (prefersReducedMotion) {
             skyReveal = 1;
             skyRevealStart = 0;
             render(performance.now());
-        } else {
-            startRender();
         }
+        startRender();
 
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
@@ -1066,7 +1246,7 @@
             buildDust();
             renderConstellation();
             if (window.CelestialSky) CelestialSky.resize();
-            if (!prefersReducedMotion && !rafId) startRender();
+            if (!rafId) startRender();
         };
 
         window.addEventListener('resize', handleResize);
@@ -1165,15 +1345,12 @@
 
             const isDiscovered = discoveredStars.has(star.id);
             const isActive = star.id === currentActiveId;
-            const isPreview = !interactionStarted && introPreviewIds.has(star.id);
 
-            // Antes de la interacción solo se insinúa un puñado de estrellas;
-            // el resto queda apagado e invisible. Al interactuar, solo la
-            // estrella activa brilla esperando su turno y se enciende al tocar.
+            // Antes de la interacción las estrellas no se insinúan (nacen
+            // progresivamente en el cine y solo se tocan cuando interactionReady).
+            // Al interactuar, solo la estrella activa brilla esperando su turno.
             if (isDiscovered) {
                 node.classList.add('discovered');
-            } else if (!interactionStarted && isPreview) {
-                node.classList.add('revealed');
             } else if (isActive) {
                 node.classList.add('active');
             } else {
@@ -1210,6 +1387,9 @@
     // Interacción al presionar una estrella
     function onStarClick(star) {
         const now = Date.now();
+        // Las estrellas SOLO se tocan cuando el cine terminó naturalmente
+        // (interactionReady se activa en finishCinematic).
+        if (!interactionReady) return;
         if (now - lastInteractionTime < 420) return;
         if (finaleStarted) return;
         lastInteractionTime = now;
@@ -1313,12 +1493,10 @@
     }
 
     function updateProgress() {
+        // Sin textos explicativos: la figura encendida y el resplandor cuentan
+        // que Acuario está completa. No se muestra ninguna frase de "completa".
         const count = discoveredStars.size;
-        const total = STARS.length;
-
-        if (count === total) {
-            hintElement.textContent = "La constelación de Acuario está completa";
-        } else if (count > 0) {
+        if (count > 0) {
             hintElement.textContent = defaultHint();
         }
     }
@@ -1339,9 +1517,11 @@
     // La estrella especial: nace en un punto real de Acuario (la nº14, φ Aqr) en
     // su posición exacta dentro de la constelación. Primero destaca (brillo,
     // color especial y halo) y solo después se separa. El canvas la dibuja
-    // cruzando el cielo con estela mientras el universo sigue orbitando, la
-    // estrella persigue el punto real 16 de Géminis y aterriza integrada.
-    // Acuario pasa a 13 estrellas vivas y la especial no vuelve.
+    // cruzando el cielo con estela (2 vueltas reales y visibles) mientras el
+    // universo sigue orbitando; persigue el punto real 16 de Géminis y aterriza
+    // integrada. Acuario pasa a 13 estrellas vivas (el nodo 14 y sus líneas se
+    // retiran al despegar: se re-renderiza sin la estrella) y la especial no
+    // vuelve. La anomalía comienza con un boost suave de la banda sonora.
     function launchSpecialStar() {
         if (!window.CelestialSky || specialDeparted) return;
 
@@ -1362,8 +1542,14 @@
         triggerHaptic('light');
         node.classList.add('special-chosen');
 
-        // Fase 2: su punto se desvanece y el canvas inicia el vuelo EXACTAMENTE
-        // desde esa posición, sin ningún salto visible.
+        // La anomalía comienza: subida suave y progresiva de la banda sonora
+        // (una sola rampa sobre el mismo nodo, nunca play() por frame).
+        if (window.ExperienceMusic) {
+            window.ExperienceMusic.boost(true, 3.2);
+        }
+
+        // Fase 2: su punto se desvanece, Acuario se re-dibuja con 13 y el canvas
+        // inicia el vuelo EXACTAMENTE desde esa posición, sin ningún salto.
         setTimeout(() => {
             if (!window.CelestialSky) {
                 specialDeparted = false;
@@ -1371,12 +1557,10 @@
                 return;
             }
             node.classList.add('departed');
-
-            // El viaje de la estrella especial: la música sube progresivamente
-            // (rampa larga) mientras cruza el cielo.
-            if (window.ExperienceMusic) {
-                window.ExperienceMusic.boost(true, 6.5);
-            }
+            // Acuario se queda visiblemente con 13: se retira el nodo 14 y sus
+            // líneas del dibujo interactivo. El canvas continúa el viaje desde
+            // la misma posición (no hay copia: la estrella ES el objeto viajero).
+            renderConstellation();
 
             CelestialSky.departStar({
                 fromX,
@@ -1387,11 +1571,6 @@
                     if (!point) return;
                     triggerHaptic('medium');
                     playMysteryNote();
-                    // Llegada e integración con Géminis: crescendo emocional y
-                    // después el fade-out final de la experiencia.
-                    if (window.ExperienceMusic) {
-                        window.ExperienceMusic.climaxThenFade(2, 9);
-                    }
                 }
             });
         }, 1600);
@@ -1498,54 +1677,42 @@
 
 
     // Eventos de usuario
-    // --- INTRO CINEMATOGRÁFICA ---
-    // El velo negro se retira y el cielo del starfield recorre la travesía al
-    // agujero negro (ver updateCinema). Sin textos explicativos. La experiencia
-    // espera en negro hasta el PRIMER toque; ahí arranca desde el principio y la
-    // intro se reproduce completa (no se puede saltar). Las estrellas no se
-    // tocan hasta que termina naturalmente en finishIntroToInteraction().
-    const INTRO = {
-        T_BACKDROP: 2200,   // el velo negro empieza a disiparse
-        T_CLEAR: 2600,      // el telón se vuelve transparente: se ve el vuelo
-        T_INTERACT: prefersReducedMotion ? 7000 : 45200
-    };
+    // --- INTRO CINEMATOGRÁFICA (sincronizada a la partitura real) ---
+    // La experiencia espera en negro (standby) hasta el PRIMER toque. Ese primer
+    // click/tap es la ÚNICA acción de inicio: desbloquea el AudioContext, inicia
+    // la música en fade-in y arranca la travesía visual DESDE el segundo 0 del
+    // tema. El cine se reproduce completo y NO se puede saltar: ninguna fase se
+    // cancela por desbloquear el audio. Las estrellas NO se tocan hasta el final
+    // natural de la secuencia (TIMELINE.interactionOpen → finishCinematic()).
+    // Estados separados: audioUnlocked / cinematicStarted / cinematicFinished /
+    // interactionReady.
 
-    // Reinicia la escena desde su origen: re-arranca el cine del agujero negro y
-    // la cuenta de la intro para que se vea completa.
-    function beginIntroFromStart() {
+    // Comienza la travesía visual. Siempre se ejecuta (con o sin reduced-motion:
+    // con la preferencia activa la secuencia se comprime pero nunca se salta).
+    function startCinematic() {
         stopIntroTimers();
-        if (!prefersReducedMotion) {
-            cinema.active = true;
-            cinema.t0 = performance.now();
-            cinema.phase = 'hold';
-            cinema.birthSent = false;
-            document.body.classList.add('cinema-lock');
-        }
-        runIntro();
+        cinematicStarted = true;
+        cinema.active = true;
+        cinema.t0 = performance.now();
+        cinema.phase = 'hold';
+        cinema.birthSent = false;
+        document.body.classList.add('cinema-lock');
+        // En modo estático el bucle del starfield se enciende para dibujar la
+        // travesía y se detiene solo cuando termina.
+        if (window.__kickStarfield) window.__kickStarfield();
     }
 
-    function runIntro() {
-        const backdrop = document.getElementById('intro-backdrop');
-
-        const step = (t, fn) => introTimers.push(setTimeout(fn, t));
-
-        step(INTRO.T_BACKDROP, () => {
-            if (backdrop) backdrop.classList.add('dim');
-        });
-        step(INTRO.T_CLEAR, () => {
-            introOverlay.classList.add('cinema-clear');
-        });
-        step(INTRO.T_INTERACT, finishIntroToInteraction);
-    }
-
-    // Cierra el telón y abre la interacción: solo la estrella activa brilla.
-    function finishIntroToInteraction() {
-        if (interactionStarted) return;
+    // Fin natural del cine: el universo nuevo nació y Acuario está visible. Este
+    // es el ÚNICO punto en el que se habilita la interacción con las estrellas
+    // (idempotente: un segundo toque jamás salta la travesía).
+    function finishCinematic() {
+        if (cinematicFinished) return;
+        cinematicFinished = true;
+        cinema.active = false;
         stopIntroTimers();
-        interactionStarted = true;
+        interactionReady = true;
         document.body.classList.remove('cinema-lock');
 
-        initAudio();
         triggerHaptic('light');
         playIntroSparkle();
 
@@ -1562,12 +1729,29 @@
         hintElement.textContent = "Toca una estrella";
     }
 
+    // Subidas de intensidad del final ancladas a la partitura real. Se registran
+    // una sola vez; ExperienceMusic.flush() las dispara desde el reloj maestro:
+    //   03:28.66 pico pre-drop      → la música crece un escalón
+    //   03:52.74 aproximación final → la música se eleva más
+    //   03:54.02 pico máximo        → pleno brillo
+    //   03:55.38 CLÍMAX FINAL       → crescendo emocional y fade final
+    // Si el usuario aún está leyendo el mensaje, estos escalones acompañan la
+    // canción real (coherente con su energía); si la anomalía ya viaja, preparan
+    // la llegada. Nunca se vuelve a llamar a play() aquí.
+    function scheduleMusicFinale() {
+        const M = window.ExperienceMusic;
+        if (!M || typeof M.onTime !== 'function') return;
+        M.onTime(208.59, function () { M.setLevel(0.72); });
+        M.onTime(232.74, function () { M.setLevel(0.86); });
+        M.onTime(234.02, function () { M.setLevel(1.0); });
+        M.onTime(235.38, function () { M.climaxThenFade(2, 9); });
+    }
+
     // ÚNICA acción de inicio. El primer click/tap:
     //   1) desbloquea el AudioContext,
     //   2) inicia la música (fade-in),
     //   3) comienza la experiencia desde el principio.
-    // No hay más listeners que escuchen ese mismo gesto: los antiguos
-    // desbloqueos globales y el salto de la intro se eliminaron. El guard
+    // No hay más listeners que escuchen ese mismo gesto. El guard
     // experienceStarted impide que un doble evento (touchend + click) o un
     // segundo toque provoquen una segunda transición.
     let experienceStarted = false;
@@ -1576,7 +1760,7 @@
         experienceStarted = true;
         if (e) e.preventDefault();
         initAudio();
-        beginIntroFromStart();
+        startCinematic();
     };
 
     introOverlay.addEventListener('click', beginExperience);
@@ -1597,10 +1781,16 @@
         }
     });
 
-    // Continuación del final: tocar la indicación o cualquier punto razonable
-    // de la zona lanza la escena de la anomalía (guardas en continueToAnomaly).
-    // El clic del botón burbujea hasta el overlay y pasa por la misma guarda.
+    // Continuación del final: UN SOLO flujo. El primer toque válido (click o
+    // touchend, con o sin la indicación bajo el dedo) pasa por la misma guarda
+    // continueToAnomaly(): despeja el mensaje y lanza launchSpecialStar().
+    // El touch previene el click sintético (no hay doble disparo) y, por si
+    // ambos eventos llegaran a ocurrir, la guarda es idempotente.
     finaleOverlay.addEventListener('click', continueToAnomaly);
+    finaleOverlay.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        continueToAnomaly();
+    }, { passive: false });
     if (finaleContinue) {
         finaleContinue.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -1621,12 +1811,15 @@
         setupStarfield();
         renderConstellation();
         if (window.CelestialSky && celestialMap) CelestialSky.init(celestialMap);
+        // Subidas de intensidad del final ancladas a los segundos reales de la
+        // partitura (una sola vez; el reloj maestro las dispara con flush()).
+        scheduleMusicFinale();
         // La experiencia espera en negro (standby) hasta el PRIMER toque. Ese
         // primer click/tap es la ÚNICA acción de inicio: desbloquea el audio,
-        // arranca la música y comienza la intro cinematográfica desde el
-        // principio (beginExperience en el listener del overlay). La intro se
-        // reproduce completa y las estrellas solo se activan en su final
-        // natural (finishIntroToInteraction vía INTRO.T_INTERACT).
+        // arranca la música y comienza la travesía visual desde el segundo 0
+        // del tema (beginExperience → startCinematic). El cine se reproduce
+        // completo (music-paced) y las estrellas solo se activan en su final
+        // natural (TIMELINE.interactionOpen → finishCinematic()).
     }
 
     // Atajo temporal para probar el final sin completar las 14 estrellas
@@ -1637,8 +1830,11 @@
             introOverlay.style.display = 'none';
             isModalOpen = false;
             modalOverlay.classList.remove('open');
-            // Salió del cine aunque la intro no haya terminado: cielo normal.
+            // Salió del cine aunque la intro no haya terminado: se marca como
+            // terminada y se abre el cielo normal (sin re-saltos).
             cinema.active = false;
+            cinematicFinished = true;
+            interactionReady = true;
             document.body.classList.remove('cinema-lock');
             initAudio();
             showFinale();

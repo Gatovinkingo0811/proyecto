@@ -405,28 +405,33 @@
     const SPARKLE_LIFE = 750;          // ms que dura el brillo en esa estrella
 
     // Fases del viaje narrativo de la estrella especial. NO es una ruta directa
-    // Acuario→Géminis: la estrella (1) se desprende de Acuario (~2-3s), (2) traza
-    // dos vueltas visibles alrededor del centro (~16-20s), (3) deja la órbita y
-    // persigue el nodo real 16 de Géminis (~6-8s), y (4) se integra con un
-    // destello. Total ≈ 29-30s en escritorio: un vuelo cinematográfico y lento.
-    const EXIT_DURATION = 2600;        // desprendimiento visible de Acuario
+    // Acuario→Géminis: la estrella (1) se desprende de Acuario (~1.8s), (2) traza
+    // dos vueltas completas y VISIBLES alrededor del centro (~11.5s → ~5.75s por
+    // vuelta, nunca un parpadeo), (3) deja la órbita y persigue el nodo real 16
+    // de Géminis (~3.6s), y (4) se integra con un destello.
+    // Total ≈ 17s en escritorio: encaja en la ventana del final de la partitura
+    // (desprendimiento ~03:39, llegada ~03:55-03:58) manteniendo un vuelo real.
+    // El progreso y el ángulo se calculan SIEMPRE con tiempo real
+    // (performance.now()), nunca por frames: la duración es idéntica a cualquier
+    // FPS.
+    const EXIT_DURATION = 1800;        // desprendimiento visible de Acuario
     const ORBIT_TURNS = 2;             // dos vueltas completas alrededor del centro
-    const APPROACH_DURATION = 7000;    // cierre gradual sobre Géminis
+    const APPROACH_DURATION = 3600;    // cierre gradual sobre Géminis
     const ORBIT_RING_FACTOR = 0.92;    // órbita interior al anillo de las 11
     const TRAIL_MAX = 36;              // estela corta, nunca un cometa
-
-    // La duración se adapta a la pantalla (igual que el radio orbital): dos
-    // vueltas ≈ 17s base en escritorio (~8.5s por vuelta). El progreso y el
-    // ángulo se calculan SIEMPRE con tiempo real (performance.now()), nunca por
-    // frames, así que la duración es idéntica a cualquier FPS.
+    // La duración se adapta a la pantalla (igual que el radio orbital): dos vueltas
+    // ≈ 11.5s base en escritorio (~5.75s por vuelta) para encajar en la ventana
+    // musical del final. El progreso y el ángulo se calculan SIEMPRE con tiempo
+    // real (performance.now()), nunca por frames, así que la duración es
+    // idéntica a cualquier FPS. Las vueltas permanecen claramente visibles.
     function journeyScale() {
         return Math.max(0.75, Math.min(1.15, Math.min(sky.w, sky.h) / 700));
     }
 
     // Con prefers-reduced-motion el viaje también se ve (no es un parpadeo de
-    // <1s): dura ~12s en total, quieto pero real, sin efectos accesorios.
+    // <1s): dura ~9s en total, quieto pero real, sin efectos accesorios.
     function orbitDurationFor() {
-        return reducedMotion ? 9000 : Math.round(17000 * journeyScale());
+        return reducedMotion ? 5500 : Math.round(11500 * journeyScale());
     }
 
     function departStar(opts) {
