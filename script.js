@@ -298,8 +298,16 @@
         }
 
         if (phase === 'hold' || phase === 'void' || phase === 'dawn') {
-            if (nebulaEl) nebulaEl.style.opacity = phase === 'void' ? '0' : '0';
-            if (phase === 'void' && M) M.duck(true, 1.4); // la música cae al vacío
+            // Fases separadas: hold y void son oscuridad real (nebula 0);
+            // dawn es cuando el espacio EMPIEZA a aparecer (nunca 0).
+            if (phase === 'hold') {
+                if (nebulaEl) nebulaEl.style.opacity = '0';
+            } else if (phase === 'dawn') {
+                if (nebulaEl) nebulaEl.style.opacity = '0.18';
+            } else {
+                if (nebulaEl) nebulaEl.style.opacity = '0';
+                if (M) M.duck(true, 1.4); // la música cae al vacío
+            }
         } else if (phase === 'entrance') {
             if (nebulaEl) nebulaEl.style.opacity = '0.08';
         } else if (phase === 'birth' || phase === 'done') {
@@ -1704,6 +1712,10 @@
         cinema.t0 = performance.now();
         cinema.phase = 'hold';
         cinema.birthSent = false;
+        // Aplicar el estado hold de inmediato: nebula a 0, cinema-lock activo.
+        // De lo contrario onCinemaPhase('hold') nunca dispara porque phase ya
+        // está en 'hold' cuando updateCinema() corre por primera vez.
+        onCinemaPhase('hold');
         console.debug('[CINEMA] startCinematic t0=' + cinema.t0 + ' rm=' + prefersReducedMotion);
         document.body.classList.add('cinema-lock');
         // En modo estático el bucle del starfield se enciende para dibujar la
@@ -1772,10 +1784,24 @@
         initAudio();
         console.debug('[CINEMA] tras initAudio audioUnlocked=' + audioUnlocked);
         startCinematic();
+        // El telón y el botón se retiran: el overlay deja de ser una pantalla
+        // negra encima del canvas (CAMBIO 3/4). El cielo del canvas se ve a
+        // través del overlay transparente durante la cinemática.
+        var introBackdrop = document.getElementById('intro-backdrop');
+        if (introBackdrop) introBackdrop.classList.add('dim');
+        introOverlay.classList.add('cinema-fade');
+        var beginBtn = document.getElementById('intro-begin');
+        if (beginBtn) beginBtn.classList.add('begin-hidden');
     };
 
-    introOverlay.addEventListener('click', beginExperience);
-    introOverlay.addEventListener('touchend', beginExperience, { passive: false });
+    var introBeginBtn = document.getElementById('intro-begin');
+    if (introBeginBtn) {
+        introBeginBtn.addEventListener('click', beginExperience);
+        introBeginBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            beginExperience(e);
+        }, { passive: false });
+    }
 
     modalCloseBtn.addEventListener('click', (e) => {
         e.preventDefault();
