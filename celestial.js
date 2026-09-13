@@ -48,8 +48,9 @@
  *       4) INTEGRACIÓN: al alcanzarlo se fusiona (destello sutil) y, desde ese
  *          instante, se coloca en cada frame en la posición orbital actual del
  *          nodo, conservando su color especial y sin coordenadas absolutas.
- *     La duración total es cinematográfica (~15s en escritorio) y se adapta a
- *     móvil; Acuario queda visualmente con 13 estrellas (la nº14 es la viajera).
+ *     La duración total es cinematográfica (~25s en escritorio, vuelo lento y
+ *     desahogado) y se adapta a móvil; Acuario queda visualmente con 13
+ *     estrellas (la nº14 es la viajera).
  *
  * Accesibilidad: con prefers-reduced-motion la trayectoria se resuelve casi
  * instantánea manteniendo el estado narrativo final (órbita y viaje cortos);
@@ -376,21 +377,21 @@
     // Acuario→Géminis: la estrella (1) se desprende de Acuario, (2) traza dos
     // vueltas visibles alrededor del centro, (3) deja la órbita y persigue el
     // nodo real 16 de Géminis mientras la figura sigue girando, y (4) se integra
-    // con un destello. Total ≈ 15s en escritorio: el cruce se ve de verdad.
-    const EXIT_DURATION = 1400;        // desprendimiento visible de Acuario
+    // con un destello. Total ≈ 25s en escritorio: el cruce se ve con calma.
+    const EXIT_DURATION = 2000;        // desprendimiento visible de Acuario
     const ORBIT_TURNS = 2;             // dos vueltas completas alrededor del centro
-    const APPROACH_DURATION = 4000;    // cierre gradual sobre Géminis
+    const APPROACH_DURATION = 5000;    // cierre gradual sobre Géminis
     const ORBIT_RING_FACTOR = 0.92;    // órbita interior al anillo de las 11
     const TRAIL_MAX = 36;              // estela corta, nunca un cometa
 
-    // La duración de las vueltas se adapta a la pantalla (igual que el radio
-    // orbital): 2 vueltas ≈ 10s en escritorio, más compactas en móvil.
+    // La duración se adapta a la pantalla (igual que el radio orbital). Dos
+    // vueltas ≈ 18s en escritorio: cada vuelta ≈ 9s, vuelo lento y visible.
     function journeyScale() {
         return Math.max(0.75, Math.min(1.15, Math.min(sky.w, sky.h) / 700));
     }
 
     function orbitDurationFor() {
-        return reducedMotion ? 1 : Math.round(10000 * journeyScale());
+        return reducedMotion ? 1 : Math.round(18000 * journeyScale());
     }
 
     function departStar(opts) {
@@ -575,8 +576,9 @@
                 travel.ringRadius = computeOrbitParams(sky.w, sky.h).orbitRadius * ORBIT_RING_FACTOR;
             }
             const ringR = travel.ringRadius;
-            const exitDur = reducedMotion ? 120 : EXIT_DURATION;
-            const approachDur = reducedMotion ? 200 : APPROACH_DURATION;
+            const scale = journeyScale();
+            const exitDur = reducedMotion ? 120 : Math.round(EXIT_DURATION * scale);
+            const approachDur = reducedMotion ? 200 : Math.round(APPROACH_DURATION * scale);
 
             let point;
             const phase = travel.phase;
