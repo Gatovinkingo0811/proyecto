@@ -45,6 +45,14 @@
     var boosted = false;
     var initTried = false;
     var fadingOut = false;
+    // BUG FIX: sessionRef anclaba el reloj de respaldo (usado por now() antes de
+    // que el audio esté "available") al momento de CARGA de la página, no al
+    // del clic real en "Comenzar". Si el usuario tardaba en pulsar, ese reloj
+    // ya iba adelantado; en cuanto el audio terminaba de cargar y now() pasaba
+    // a usar el.currentTime (que sí arranca en 0 real), el tiempo "saltaba
+    // hacia atrás" de golpe, haciendo que la cinemática se rebobinara de una
+    // fase ya avanzada (azul) a una fase temprana (negro/hold). Ahora se ancla
+    // en unlock(), en el mismo instante que cinema.t0 en script.js.
     var sessionRef = typeof performance !== 'undefined' ? performance.now() : 0;
     var syncList = [];
 
@@ -154,6 +162,11 @@
                 return;
             }
             started = true;
+            // Re-ancla el reloj de respaldo AQUÍ, en el gesto real de inicio,
+            // para que coincida con cinema.t0 (script.js) y no con la carga
+            // de la página. Evita el salto hacia atrás cuando available pasa
+            // a true y now() cambia de fuente de tiempo.
+            sessionRef = performance.now();
             if (ctx && ctx.state === 'suspended') {
                 try { ctx.resume(); } catch (e) {}
             }
