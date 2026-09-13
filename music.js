@@ -9,8 +9,8 @@
    - El audio arranca SIEMPRE después de una interacción del usuario (políticas
      de autoplay de los navegadores): experienceMusic.unlock() se llama en el
      primer gesto, desde el mismo desbloqueo de audio de los efectos.
-   - Volúmenes independientes: la música tiene su propia ganancia; los tonos de
-     las estrellas y la melodía final (Web Audio) conviven sin tocarse.
+   - Volúmenes independientes: la música tiene su propia ganancia; los tonos
+     de las estrellas y la melodía final (Web Audio) conviven sin tocarse.
    - Fades suaves (fade-in/out), ducking durante los mensajes y un pequeño
      boost durante el viaje de la estrella especial: todo con rampas de ganancia
      sobre el MISMO nodo, nunca llamadas a play() por frame.
@@ -34,19 +34,19 @@
     var BOOST_FACTOR = 1.18;
     var FADE_ACTIVATE_MS = 2.5;
 
-    var ctx = null;        // AudioContext compartido con los efectos
-    var el = null;         // elemento <audio> (no se añade al DOM)
-    var source = null;     // MediaElementSource (una sola conexión)
-    var gain = null;       // ganancia exclusiva de la música
-    var available = false; // el archivo se puede reproducir
-    var started = false;   // ya se intentó reproducir al menos una vez
+    var ctx = null;
+    var el = null;
+    var source = null;
+    var gain = null;
+    var available = false;
+    var started = false;
     var baseTarget = BASE_VOLUME;
     var ducked = false;
     var boosted = false;
     var initTried = false;
-    var fadingOut = false; // tras el crescendo final el tema no se re-sube
+    var fadingOut = false;
     var sessionRef = typeof performance !== 'undefined' ? performance.now() : 0;
-    var syncList = [];     // puntos de sincronización: segundo -> callback
+    var syncList = [];
 
     function log(msg) {
         if (window.console && console.debug) console.debug('[música] ' + msg);
@@ -58,7 +58,6 @@
         return new AC();
     }
 
-    // Prepara el grafo una única vez, de forma perezosa (tras el primer gesto).
     function ensure() {
         if (initTried) return;
         initTried = true;
@@ -103,8 +102,6 @@
     function handleReady() {
         available = true;
         log('tema listo (' + niceDuration(el.duration) + ')');
-        // Si el usuario ya había desbloqueado antes de que el archivo cargara,
-        // arranca en cuanto está disponible (sin segundo gesto).
         if (started && el && el.paused) play();
     }
 
@@ -149,7 +146,6 @@
     }
 
     var experienceMusic = {
-        // Se llama desde el desbloqueo de audio de la experiencia (idempotente).
         unlock: function () {
             ensure();
             if (!el) return;
@@ -165,14 +161,11 @@
             rampGain(currentTarget(), FADE_ACTIVATE_MS);
         },
 
-        // Posición real del audio en segundos (-1 si la música no está sonando);
-        // útil para sincronizar momentos narrativos con la partitura.
         getTime: function () {
             if (!available || !started || !el || el.paused) return -1;
             return el.currentTime;
         },
 
-        // Duración total del tema (0 si no se conoce / no hay archivo).
         getDuration: function () {
             if (!el || !available) return 0;
             var d = el.duration;
@@ -183,14 +176,12 @@
             return !!(started && el && el.paused === false);
         },
 
-        // Apaga el volumen para dar paso a los sonidos de las estrellas.
         duck: function (on, rampSeconds) {
             if (fadingOut) return;
             ducked = !!on;
             if (started && gain) rampGain(currentTarget(), rampSeconds || 1.4);
         },
 
-        // Pequeño empuje durante el viaje de la estrella especial.
         boost: function (on, rampSeconds) {
             if (fadingOut) return;
             boosted = !!on;
@@ -214,11 +205,6 @@
             if (started && gain) rampGain(0.0001, rampSeconds || 6);
         },
 
-        // Reloj maestro de la narrativa (segundos, base 0 = inicio del tema):
-        // usa el tiempo real del audio cuando la música suena y, si el tema no
-        // está disponible, avanza con un reloj monótono equivalente para que la
-        // experiencia siga funcionando igual. Devuelve -1 solo mientras el
-        // audio aún no ha empezado.
         now: function () {
             if (available) {
                 return (started && el) ? el.currentTime : -1;
@@ -226,18 +212,18 @@
             return (performance.now() - sessionRef) / 1000;
         },
 
-        // Programa una llamada única que se dispara cuando el reloj maestro
-        // alcanza "seconds". Es el gancho para atar transiciones a los
-        // timestamps exactos del tema una vez analizado el MP3.
         onTime: function (seconds, callback) {
             if (typeof seconds !== 'number' || typeof callback !== 'function') return;
             syncList.push({ seconds: seconds, callback: callback, fired: false });
         },
 
-        // Evalúa los puntos de sincronización pendientes. Se llama una vez por
-        // frame desde el mismo requestAnimationFrame del cielo (sin loops).
         flush: function () {
-            var t = now();
+            // BUG FIX: este método es propiedad del objeto; no existe una
+            // función global/local llamada `now`. La referencia correcta es
+            // `experienceMusic.now()`. Antes esto lanzaba ReferenceError en el
+            // primer frame de render y mataba requestAnimationFrame, dejando
+            // la pantalla negra justo cuando el telón se volvía transparente.
+            var t = experienceMusic.now();
             if (t < 0) return;
             for (var i = syncList.length - 1; i >= 0; i--) {
                 var s = syncList[i];
@@ -248,9 +234,6 @@
             }
         },
 
-        // Hitos narrativos. sec = null los mantiene conducidos por los eventos
-        // reales de la experiencia (como hoy). Cuando analicemos el MP3 se ponen
-        // aquí los segundos exactos del tema y las transiciones se atan a ellos.
         syncTimeline: {
             intro_hold_ends: null,
             intro_far_stars_appear: null,
@@ -262,12 +245,8 @@
             arrival_climax: null
         },
 
-        // Duración objetivo del tema (4:04 = 244 s). Dato de referencia para el
-        // ajuste futuro: por sí solo no altera ningún ritmo.
         targetDuration: 244,
 
-        // "Respiro": baja un instante para que se escuche el momento (p. ej. la
-        // melodía final) y vuelve por sí sola, suave.
         breathe: function (dipSeconds) {
             if (!started || !gain || !ctx) return;
             var t = ctx.currentTime;
@@ -281,9 +260,6 @@
             );
         },
 
-        // Crescendo emocional en la llegada a Géminis y, justo después, el fade
-        // final: sube un momento y se retira despacio al cierre de la
-        // experiencia. Marca fadingOut para que nada la re-suba después.
         climaxThenFade: function (riseSeconds, fadeSeconds) {
             if (!started || !gain || !ctx) return;
             fadingOut = true;
