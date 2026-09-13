@@ -286,8 +286,14 @@
         // el cielo del canvas queda a la vista durante el resto de la travesía.
         if (phase === 'dawn') {
             if (backdrop) backdrop.classList.add('dim');
+            console.debug('[CINEMA] -> dawn (telón backdrop.dim)');
         } else if (phase === 'approach' || phase === 'blackhole') {
             if (introOverlay) introOverlay.classList.add('cinema-clear');
+            console.debug('[CINEMA] -> ' + phase + ' (telón introOverlay.cinema-clear) hole=' + cinema.conf.hole);
+        }
+
+        if (phase === 'dawn' || phase === 'approach' || phase === 'blackhole' || phase === 'void' || phase === 'birth' || phase === 'done') {
+            console.debug('[CINEMA] onCinemaPhase=' + phase + ' t=' + t.toFixed(2) + ' cinema.active=' + cinema.active);
         }
 
         if (phase === 'hold' || phase === 'void' || phase === 'dawn') {
@@ -1201,6 +1207,7 @@
                 // incluido el crescendo y el fade del final). Al callar el tema,
                 // el frame se detiene y el universo queda como pintura quieta.
                 if (prefersReducedMotion && !cinema.active && !musicStillRelevant()) {
+                    console.debug('[CINEMA-GATE] bucle detenido (RM) — cinema.active=' + cinema.active + ' musicStillRelevant=' + musicStillRelevant());
                     rafId = null;
                     return;
                 }
@@ -1696,6 +1703,7 @@
         cinema.t0 = performance.now();
         cinema.phase = 'hold';
         cinema.birthSent = false;
+        console.debug('[CINEMA] startCinematic t0=' + cinema.t0 + ' rm=' + prefersReducedMotion);
         document.body.classList.add('cinema-lock');
         // En modo estático el bucle del starfield se enciende para dibujar la
         // travesía y se detiene solo cuando termina.
