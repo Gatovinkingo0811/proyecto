@@ -83,9 +83,12 @@
 
     // Velocidad orbital global (radianes por frame). Solo este ángulo avanza;
     // cada constelación añade su fase fija para repartirse en el círculo.
-    // Lenta y elegante: una vuelta completa ≈ 65s en 60fps. Sin movimiento
-    // decorativo bajo prefers-reduced-motion.
-    const ORBIT_SPEED = reducedMotion ? 0 : 0.0016;
+    // Lenta y elegante: una vuelta completa ≈ 65s en 60fps.
+    // IMPORTANTE: la órbita NUNCA debe detenerse ni ralentizarse — el final es
+    // un cielo vivo detrás del mensaje. Bajo prefers-reduced-motion se mantiene
+    // este giro constante; lo que se reduce ahí son las animaciones CSS y la
+    // duración del viaje de la estrella, no el movimiento del zodíaco.
+    const ORBIT_SPEED = 0.0016;
 
     // Escala de referencia de la proyección (misma que constellation-viewer.js).
     const PROJECT_BOX = 200;
@@ -234,6 +237,10 @@
 
     // Ángulo orbital global (radianes). Solo él avanza en la animación.
     let globalAngle = 0;
+
+    // Un error puntual de dibujo jamás debe apagar el cielo: el frame se marca
+    // una sola vez y el bucle continúa en el siguiente frame.
+    let frameFailureLogged = false;
 
     // Radio orbital y tamaño objetivo responsivos. Garantías:
     //   - Radio ≤ 42% de min(w,h) con ≥ 40px de margen al borde más próximo.
@@ -577,27 +584,36 @@
         const ctx2 = sky.ctx;
         const canvas = sky.canvas;
 
-        if (ctx2 && canvas && sky.w) {
-            const w = sky.w;
-            const h = sky.h;
-            const dpr = sky.dpr || 1;
+        try {
+            if (ctx2 && canvas && sky.w) {
+                const w = sky.w;
+                const h = sky.h;
+                const dpr = sky.dpr || 1;
 
-            // Alta resolución: dibuja en píxeles CSS con el contexto escalado.
-            ctx2.setTransform(dpr, 0, 0, dpr, 0, 0);
-            ctx2.clearRect(0, 0, canvas.width, canvas.height);
+                // Alta resolución: dibuja en píxeles CSS con el contexto escalado.
+                ctx2.setTransform(dpr, 0, 0, dpr, 0, 0);
+                ctx2.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Único movimiento orbital: avanza el ángulo global.
-            globalAngle += ORBIT_SPEED;
+                // Único movimiento orbital: avanza el ángulo global.
+                globalAngle += ORBIT_SPEED;
 
-            // Las 11 constelaciones en su anillo circular (traslación pura).
-            const layout = orbitLayout(w, h);
-            sky.currentLayout = layout;
-            layout.forEach((entry) => drawConstellation(entry, ctx2));
+                // Las 11 constelaciones en su anillo circular (traslación pura).
+                const layout = orbitLayout(w, h);
+                sky.currentLayout = layout;
+                layout.forEach((entry) => drawConstellation(entry, ctx2));
 
-            // La estrella especial: viaje o integración en Géminis.
-            // Comparte el MISMO requestAnimationFrame que la órbita (vive en el
-            // ciclo principal de animate), sin loops ni timers independientes.
-            updateTravel(ctx2);
+                // La estrella especial: viaje o integración en Géminis.
+                // Comparte el MISMO requestAnimationFrame que la órbita (vive en el
+                // ciclo principal de animate), sin loops ni timers independientes.
+                updateTravel(ctx2);
+            }
+        } catch (err) {
+            // NUNCA dejar morir el bucle: un frame fallido se salta y el cielo
+            // continúa orbitando en el siguiente frame (sin romper la cadena).
+            if (!frameFailureLogged) {
+                frameFailureLogged = true;
+                console.warn('[CelestialSky] frame omitido:', err && err.message);
+            }
         }
 
         requestAnimationFrame(animate);

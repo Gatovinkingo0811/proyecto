@@ -985,9 +985,6 @@
                     if (!point) return;
                     triggerHaptic('medium');
                     playMysteryNote();
-                    if (hintElement) {
-                        hintElement.textContent = "Ya no está en Acuario: ilumina Géminis";
-                    }
                 }
             });
         }, 1600);
