@@ -890,6 +890,12 @@
             updateCinema(now);
             const c = cinema.active ? cinema.conf : null;
 
+            // Reloj maestro de la música: dispara los puntos de sincronización
+            // pendientes (una llamada por frame, sin loops adicionales).
+            if (window.ExperienceMusic) {
+                window.ExperienceMusic.flush();
+            }
+
             if (skyReveal < 1) {
                 skyReveal = Math.min(1, (now - skyRevealStart) / 6000);
             }
@@ -1374,9 +1380,10 @@
             }
             node.classList.add('departed');
 
-            // El viaje de la estrella especial crece en intensidad musical.
+            // El viaje de la estrella especial: la música sube progresivamente
+            // (rampa larga) mientras cruza el cielo.
             if (window.ExperienceMusic) {
-                window.ExperienceMusic.boost(true, 2.4);
+                window.ExperienceMusic.boost(true, 6.5);
             }
 
             CelestialSky.departStar({
@@ -1388,8 +1395,10 @@
                     if (!point) return;
                     triggerHaptic('medium');
                     playMysteryNote();
+                    // Llegada e integración con Géminis: crescendo emocional y
+                    // después el fade-out final de la experiencia.
                     if (window.ExperienceMusic) {
-                        window.ExperienceMusic.boost(false, 3);
+                        window.ExperienceMusic.climaxThenFade(2, 9);
                     }
                 }
             });
@@ -1413,10 +1422,10 @@
         triggerHaptic('success');
         playFinaleMelody();
 
-        // La banda sonora se retira despacio para que la melodía y la pausa del
-        // final tomen el protagonismo.
+        // Las 14 estrellas conectadas: la banda sonora "respira" un momento
+        // (baja un instante para que se escuche la melodía final y vuelve sola).
         if (window.ExperienceMusic) {
-            window.ExperienceMusic.fadeOut(9000);
+            window.ExperienceMusic.breathe(7);
         }
 
         // El resplandor de la constelación principal se aplica de una vez, en el
