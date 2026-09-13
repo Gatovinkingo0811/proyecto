@@ -36,15 +36,18 @@
  *
  * Estrella especial (narrativa, sin etiquetas):
  *   - Nace en una de las 14 estrellas interactivas de Acuario (coordenadas de
- *     pantalla del DOM, ya transformadas por el zoom), traza un arco con estela
- *     y aterriza sobre un punto REAL de Géminis: la estrella 16 de su figura
- *     (el pie, último nodo del último segmento de zodiac-data.js). Al llegar,
- *     ya no vuelve a Acuario: se dibuja "integrada" en Géminis a cada frame,
- *     por lo que sigue la órbita con la figura aunque el mapa se re-renderice.
+ *     pantalla del DOM, ya transformadas por el zoom). Destaca en su sitio y,
+ *     después, cruza el cielo con estela persiguiendo un punto REAL de Géminis:
+ *     la estrella 16 de su figura (el pie, nodo real de zodiac-data.js). El
+ *     destino se re-evalúa en CADA frame (la órbita nunca se detiene): la
+ *     estrella persigue el nodo orbitante y la duración del viaje depende de la
+ *     distancia (~4-7s). Al alcanzarlo se fusiona (destello sutil) y, desde ese
+ *     instante, se coloca en cada frame en la posición orbital actual del nodo,
+ *     conservando su color especial y sin coordenadas absolutas.
  *
  * Accesibilidad: con prefers-reduced-motion la órbita se detiene (velocidad 0)
- * y el viaje de la estrella especial se resuelve en un solo frame (sin arco
- * ni estela), manteniendo igualmente el estado narrativo final.
+ * y el viaje de la estrella especial se resuelve de forma casi instantánea,
+ * manteniendo igualmente el estado narrativo final.
  *
  * API pública: window.CelestialSky
  *   .init(canvas)                  prepara el canvas y lanza la animación.
@@ -353,6 +356,17 @@
     // Estado del vuelo y del aterrizaje. Una sola estrella, sin etiquetas.
     let travel = null;
     let departed = false;
+    // Destello/expansión de luz muy sutil al fusionarse con Géminis.
+    let arrivalFx = null;
+
+    // Duración de viaje según la distancia visual (no rígida):
+    //   corta  (~1200px, móvil)      ≈ 4.0 s
+    //   media  (~1800-2200px)        ≈ 5-6 s
+    //   larga  (~2500px+, escritorio)≈ 6-7 s
+    function travelDurationFor(distPx) {
+        if (reducedMotion) return 1;
+        return Math.min(7000, Math.max(4000, Math.round(distPx * 2.45)));
+    }
 
     function departStar(opts) {
         if (travel || !opts) return false;
@@ -365,14 +379,20 @@
             ? { destId: opts.destId, destIndex: Number(opts.destIndex) }
             : NARRATIVE_TARGET;
 
+        // Distancia inicial al nodo real: dimensiona la duración del viaje.
+        const firstDest = getStarScreenPosition(target.destId, target.destIndex);
+        const dist = firstDest ? Math.hypot(firstDest.x - fromX, firstDest.y - fromY) : 0;
+
         travel = {
             fromX,
             fromY,
             destId: target.destId,
             destIndex: target.destIndex,
             startedAt: performance.now(),
-            // Con prefers-reduced-motion: llegada en el siguiente frame, sin arco.
-            duration: Math.max(1, opts.duration || (reducedMotion ? 1 : 3400)),
+            duration: travelDurationFor(dist),
+            // Posición de partida EXACTA (sin salto) + último destino conocido.
+            pos: { x: fromX, y: fromY },
+            lastDest: firstDest,
             trail: [],
             onArrive: typeof opts.onArrive === 'function' ? opts.onArrive : null
         };
@@ -383,13 +403,14 @@
         return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
     }
 
-    // Estela tenue y delgada: una polilínea de recuerdos recientes.
+    // Estela tenue y delgada: una polilínea de recuerdos recientes, tonos
+    // blanco/rosa/lila que desaparecen hacia la cola.
     function drawTrail(ctx, trail) {
         ctx.save();
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         for (let i = 1; i < trail.length; i++) {
-            ctx.strokeStyle = 'rgba(185, 212, 255, ' + ((i / trail.length) * 0.45) + ')';
+            ctx.strokeStyle = 'rgba(224, 205, 240, ' + ((i / trail.length) * 0.4) + ')';
             ctx.lineWidth = 1.1;
             ctx.beginPath();
             ctx.moveTo(trail[i - 1].x, trail[i - 1].y);
@@ -440,48 +461,112 @@
         ctx.restore();
     }
 
-    // Avanza el vuelo y dibuja la estrella especial (viaje o integración).
-    function updateTravel(ctx, w, h) {
+    // Línea muy sutil de aproximación en la fase final: una pequeña "unión" entre
+    // la estrella y el nodo real de Géminis al que se integra.
+    function drawApproachLink(ctx, x, y, tx, ty, strength) {
+        if (strength <= 0) return;
+        ctx.save();
+        ctx.strokeStyle = 'rgba(214, 200, 255, ' + (0.3 * strength) + ')';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 5]);
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(tx, ty);
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    // Expansión de luz muy sutil al fusionarse: dos anillos que crecen y se
+    // funden en pocos frames sobre el punto de integración.
+    function drawArrivalFx(ctx, now) {
+        if (!arrivalFx) return;
+        const p = (now - arrivalFx.t0) / 950;
+        if (p >= 1) {
+            arrivalFx = null;
+            return;
+        }
+        const x = arrivalFx.x;
+        const y = arrivalFx.y;
+        const fade = 1 - p;
+
+        ctx.save();
+        ctx.globalAlpha = 0.32 * fade;
+        ctx.fillStyle = 'rgba(196, 181, 253, 1)';
+        ctx.beginPath();
+        ctx.arc(x, y, 7 + p * 34, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        ctx.save();
+        ctx.globalAlpha = 0.5 * fade;
+        ctx.strokeStyle = 'rgba(232, 222, 255, 1)';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.arc(x, y, 4 + p * 22, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    // Avanza el vuelo y dibuja la estrella especial. El destino se re-evalúa en
+    // CADA frame desde el orbitLayout actual: Géminis continúa girando mientras
+    // la estrella cruza el cielo, así que ella lo persigue sin puntos fijos ni
+    // teletransporte (interpolación con inercia y desaceleración al acercarse).
+    function updateTravel(ctx) {
+        const now = performance.now();
+
         if (travel) {
+            // 1) Posición ACTUAL del nodo real de Géminis en este mismo frame.
             const dest = getStarScreenPosition(travel.destId, travel.destIndex);
-            const t = Math.min(1, (performance.now() - travel.startedAt) / travel.duration);
+            const dx = dest ? dest.x : (travel.lastDest ? travel.lastDest.x : travel.fromX);
+            const dy = dest ? dest.y : (travel.lastDest ? travel.lastDest.y : travel.fromY);
+            if (dest) travel.lastDest = dest;
+
+            // 2) Progreso paramétrico: aceleración suave, crucero y desaceleración.
+            const t = Math.min(1, (now - travel.startedAt) / travel.duration);
             const e = easeInOutQuad(t);
 
+            // 3) Punto ideal sobre la ruta origen→destino ACTUAL de cada frame.
             const sx = travel.fromX;
             const sy = travel.fromY;
-            const dx = dest ? dest.x : sx;
-            const dy = dest ? dest.y : sy;
+            const px = sx + (dx - sx) * e;
+            const py = sy + (dy - sy) * e;
 
-            // Arco suave: control en el punto medio desplazado en perpendicular
-            // a la cuerda del trayecto. Cuanto más largo, más curvatura.
-            const chord = Math.hypot(dx - sx, dy - sy) || 1;
-            const nx = -(dy - sy) / chord;
-            const ny = (dx - sx) / chord;
-            const q = Math.min(90, Math.max(28, chord * 0.22));
-            const mx = (sx + dx) / 2 + nx * q;
-            const my = (sy + dy) / 2 + ny * q;
+            // 4) Inercia: la estrella tiende hacia ese punto sin giros bruscos.
+            const blend = 0.6;
+            travel.pos.x += (px - travel.pos.x) * blend;
+            travel.pos.y += (py - travel.pos.y) * blend;
+            const cx = travel.pos.x;
+            const cy = travel.pos.y;
 
-            const u = 1 - e;
-            const px = u * u * sx + 2 * u * e * mx + e * e * dx;
-            const py = u * u * sy + 2 * u * e * my + e * e * dy;
-
-            travel.trail.push({ x: px, y: py });
-            if (travel.trail.length > 34) travel.trail.shift();
+            travel.trail.push({ x: cx, y: cy });
+            if (travel.trail.length > 24) travel.trail.shift();
 
             drawTrail(ctx, travel.trail);
-            drawTravelBody(ctx, px, py);
 
-            if (t >= 1) {
+            // 5) Fase de acercamiento: unión sutil conforme gana terreno.
+            const dToTarget = Math.hypot(dx - cx, dy - cy);
+            const approach = Math.max(0, Math.min(1, 1 - dToTarget / 180));
+            if (approach > 0) drawApproachLink(ctx, cx, cy, dx, dy, approach);
+
+            drawTravelBody(ctx, cx, cy);
+
+            // 6) Llegada: los puntos coinciden dentro del nodo destino real.
+            //    No hay relojes extra: se cierra cuando la inercia fusiona la
+            //    estrella con el nodo (destello + integración).
+            if (t >= 1 && dToTarget < 26) {
                 const cb = travel.onArrive;
-                const arrivedAt = dest && isFinite(dest.x) && isFinite(dest.y)
-                    ? { x: dx, y: dy }
-                    : { x: px, y: py };
                 travel = null;
                 departed = true;
-                if (cb) cb(arrivedAt);
+                arrivalFx = { x: dx, y: dy, t0: now };
+                if (cb) cb({ x: dx, y: dy });
             }
         }
 
+        drawArrivalFx(ctx, now);
+
+        // Tras la fusión, la especial ya NO usa trayectoria propia: cada frame se
+        // coloca exactamente en la posición orbital actual del nodo 16 real de
+        // Géminis (nada de coordenadas absolutas), conservando su color.
         if (departed) {
             const dest = getStarScreenPosition('Gem', 16);
             if (dest) drawIntegratedStar(ctx, dest.x, dest.y);
@@ -510,7 +595,9 @@
             layout.forEach((entry) => drawConstellation(entry, ctx2));
 
             // La estrella especial: viaje o integración en Géminis.
-            updateTravel(ctx2, w, h);
+            // Comparte el MISMO requestAnimationFrame que la órbita (vive en el
+            // ciclo principal de animate), sin loops ni timers independientes.
+            updateTravel(ctx2);
         }
 
         requestAnimationFrame(animate);

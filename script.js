@@ -180,6 +180,10 @@
     // La estrella nº14 ya partió hacia Géminis: Acuario pasa de 14 a 13 nodos.
     let specialDeparted = false;
 
+    // Cierre interactivo del final: el usuario decide cuándo continuar.
+    let finaleContinueReady = false;
+    let anomalyStarted = false;
+
     // --- INTRO PROGRESIVO (oscuridad → cielo → teaser → interacción) ---
     // Un puñado de estrellas reales de Acuario se insinúa antes de interactuar,
     // sin llegar a formar la figura. El resto permanece apagado hasta su turno.
@@ -204,8 +208,10 @@
     const modalMessage = document.getElementById('modal-message');
     const modalCloseBtn = document.getElementById('modal-close');
     const finaleOverlay = document.getElementById('finale-overlay');
+    const finaleContent = document.getElementById('finale-content');
     const finaleMessage = document.getElementById('finale-message');
     const finaleSign = document.querySelector('.finale-sign');
+    const finaleContinue = document.getElementById('finale-continue');
 
     // --- RESPUESTA HÁPTICA PARA MÓVIL ---
     function triggerHaptic(type = 'light') {
@@ -934,10 +940,11 @@
         }, delay);
     }
 
-    // La estrella especial: nace en un punto real de Acuario (la nº14, φ Aqr),
-    // brilla por un instante en su nodo y abandona la constelación. El canvas
-    // la dibuja cruzando el cielo con estela hasta aterrizar sobre la estrella
-    // 16 de Géminis (punto real de zodiac-data.js) e integrarse en su órbita.
+    // La estrella especial: nace en un punto real de Acuario (la nº14, φ Aqr) en
+    // su posición exacta dentro de la constelación. Primero destaca (brillo,
+    // color especial y halo) y solo después se separa. El canvas la dibuja
+    // cruzando el cielo con estela mientras el universo sigue orbitando, la
+    // estrella persigue el punto real 16 de Géminis y aterriza integrada.
     // Acuario pasa a 13 estrellas vivas y la especial no vuelve.
     function launchSpecialStar() {
         if (!window.CelestialSky || specialDeparted) return;
@@ -954,32 +961,36 @@
 
         specialDeparted = true;
 
-        // Brillo breve en el punto de origen antes de desvanecerse y partir.
+        // Fase 1: la estrella destaca en SU sitio dentro de Acuario (cambio de
+        // color + halo) durante un instante, sin moverse.
         triggerHaptic('light');
         node.classList.add('special-chosen');
-        setTimeout(() => node.classList.add('departed'), 1600);
 
-        const ok = CelestialSky.departStar({
-            fromX,
-            fromY,
-            destId: 'Gem',
-            destIndex: 16,
-            duration: 3400,
-            onArrive(point) {
-                if (!point) return;
-                triggerHaptic('medium');
-                playMysteryNote();
-                if (hintElement) {
-                    hintElement.textContent = "Ya no está en Acuario: ilumina Géminis";
-                }
+        // Fase 2: su punto se desvanece y el canvas inicia el vuelo EXACTAMENTE
+        // desde esa posición, sin ningún salto visible.
+        setTimeout(() => {
+            if (!window.CelestialSky) {
+                specialDeparted = false;
+                node.classList.remove('special-chosen', 'departed');
+                return;
             }
-        });
+            node.classList.add('departed');
 
-        // Si el cielo no pudo lanzar el viaje, restauramos el nodo de origen.
-        if (!ok) {
-            specialDeparted = false;
-            node.classList.remove('special-chosen', 'departed');
-        }
+            CelestialSky.departStar({
+                fromX,
+                fromY,
+                destId: 'Gem',
+                destIndex: 16,
+                onArrive(point) {
+                    if (!point) return;
+                    triggerHaptic('medium');
+                    playMysteryNote();
+                    if (hintElement) {
+                        hintElement.textContent = "Ya no está en Acuario: ilumina Géminis";
+                    }
+                }
+            });
+        }, 1600);
     }
 
 // Pantalla de cierre: una pequeña historia final escenificada.
@@ -987,12 +998,12 @@
     //    irradia de inmediato, con un resplandor suave.
     // 2) El cielo se aleja y el zodíaco se revela; el texto flota sobre él.
     // 3) El mensaje final se escenifica y la firma cierra la experiencia.
-    // 4) Se dejan unos 30s para que pueda leer a tiempo, y después el texto se
-    //    va desvaneciendo poco a poco, dejando solo el cielo de fondo.
-    // 5) Tras ese cierre, una de las 14 estrellas de Acuario (la nº14) se
-    //    ilumina, cruza el cielo con estela y aterriza sobre la estrella 16 de
-    //    Géminis (punto real del zodíaco). Acuario se queda con 13; la especial
-    //    orbita a partir de entonces como parte de su nueva constelación.
+    // 4) Cuando todo el texto está visible, aparece "Toca para continuar".
+    //    NO hay temporizador de lectura: el usuario decide cuándo continuar.
+    // 5) Al tocar, la estrella nº14 de Acuario destaca, se separa y cruza el
+    //    cielo con estela mientras las constelaciones siguen orbitando, hasta
+    //    perseguir y alcanzar la estrella 16 real de Géminis e integrarse.
+    //    Acuario se queda con 13; la especial orbita con su nueva constelación.
     function showFinale() {
         finaleStarted = true;
         document.body.classList.add('constellation-complete');
@@ -1039,26 +1050,39 @@
             finaleSign.classList.add('show-sign');
         }, signTime);
 
-        // Unos 30s para que pueda leer a tiempo... y después el texto se va
-        // esfumando (desvaneciéndose) de a poco, quedando el fondo estrellado.
-        const readMs = 30000;
-        const fadeTime = signTime + readMs;
-        setTimeout(() => {
-            finaleMessage.classList.add('fade-out');
-            finaleSign.classList.add('fade-out');
-        }, fadeTime);
+        // Sin temporizador de lectura: cuando el texto y la firma terminaron su
+        // entrada, se muestra "Toca para continuar" y ES EL USUARIO quien decide.
+        // El universo no se detiene en ningún momento (la órbita ya viaja sola).
+        setTimeout(showFinaleContinue, signTime + 1400);
+    }
 
-        // La estrella especial parte de Acuario al terminar esos 30s, nunca al
-        // instante: cruza el cielo con estela y se integra en Géminis.
-        const starTime = fadeTime + 2500;
-        setTimeout(() => {
-            launchSpecialStar();
-        }, starTime);
+    // El mensaje terminó de aparecer: se muestra la indicación suave y toda la
+    // zona del final queda interactiva. Sin relojes: esperamos el toque.
+    function showFinaleContinue() {
+        if (anomalyStarted) return;
+        finaleContinueReady = true;
+        if (finaleContinue) finaleContinue.classList.add('show');
+        finaleOverlay.classList.add('continue-ready');
+    }
 
-        // El escenario se retira por completo y queda solo el cielo de fondo.
-        setTimeout(() => {
-            finaleOverlay.classList.remove('show');
-        }, starTime + 2000);
+    // El usuario continúa: la indicación se retira, el telón de texto se despeja
+    // (dejando a la vista el cielo que sigue orbitando) y la estrella especial
+    // inicia su viaje. Guardas para evitar la doble activación.
+    function continueToAnomaly() {
+        if (!finaleContinueReady || anomalyStarted) return;
+        if (!finaleStarted) return;
+        anomalyStarted = true;
+        finaleContinueReady = false;
+
+        if (finaleContinue) finaleContinue.classList.remove('show');
+        finaleOverlay.classList.remove('continue-ready');
+
+        // El texto se retira rápido para que el destello de la estrella se vea
+        // limpio contra el cielo vivo; el escenario completa su fade de fondo.
+        if (finaleContent) finaleContent.classList.add('gone');
+        finaleOverlay.classList.remove('show');
+
+        launchSpecialStar();
     }
 
 
@@ -1151,6 +1175,19 @@
             closeModal();
         }
     });
+
+    // Continuación del final: tocar la indicación o cualquier punto razonable
+    // de la zona lanza la escena de la anomalía (guardas en continueToAnomaly).
+    // El clic del botón burbujea hasta el overlay y pasa por la misma guarda.
+    finaleOverlay.addEventListener('click', continueToAnomaly);
+    if (finaleContinue) {
+        finaleContinue.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                continueToAnomaly();
+            }
+        });
+    }
 
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && isModalOpen) {
