@@ -208,30 +208,32 @@
 
     // --- INTRO CINEMATOGRÁFICA Sincronizada a la partitura real ---
     // La música es el reloj maestro. TIMELINE guarda los segundos del tema
-    // (0 = inicio del MP3, duración 244.008 s = 4:04.01) donde ocurren los
-    // grandes eventos visuales, tomados del análisis musical real:
-    //   00:00.00 silencio · 00:02.43 primer sonido · 00:16 capa armónica ·
-    //   00:41.15 fin de intro · 01:50.44 buildup con el agujero negro ·
-    //   02:17.24 entrada/al clímax 1 · 02:27.19 vacío · 02:40.47 nacen las
-    //   14 estrellas de Acuario (sin salto: geometría real preservada).
-    // Con prefers-reduced-motion la secuencia se COMPRIME proporcionalmente
-    // (rmScale) pero SIEMPRE se ejecuta completa: nunca un salto a los puntos.
-    // updateCinema() avanza con ExperienceMusic.now() y un reloj local de
-    // respaldo, jamás con un temporizador de 44 s.
+    // (0 = inicio del MP3, duración real 244.008 s) donde ocurren los eventos
+    // visuales. Estos tiempos vienen de un análisis real de energía (RMS) del
+    // MP3 en sus primeros ~32s:
+    //   00:00.00–00:02.43 silencio total (confirmado, rms=0) · 00:02.43 primer
+    //   sonido real · 00:16.15 primer pequeño golpe (rms sube a ~0.046) inicia
+    //   el vuelo · 00:24.5 PRIMER golpe fuerte real (rms pico 0.106) → aparece
+    //   el agujero negro · 00:26.4 SEGUNDO golpe, el más fuerte de este tramo
+    //   (rms pico 0.116) → el horizonte alcanza su máxima intensidad.
+    // A partir de ahí (aproach/entry/void/birth) el ritmo es nuestro, no de un
+    // pico puntual: la travesía se corta corta a propósito para no obligar a
+    // esperar el clímax real de la canción (éste llega mucho después, hacia
+    // 01:50–02:20, y ya sonará de fondo mientras se interactúa con las
+    // estrellas). Con prefers-reduced-motion la secuencia se COMPRIME
+    // proporcionalmente (rmScale) pero SIEMPRE se ejecuta completa.
     const TIMELINE = {
-        firstSound: 2.43,       // primer sonido: nacen partículas muy sutiles
-        harmony: 16.00,         // capa armónica: el espacio aparece
-        introPeak: 41.15,       // fin de la intro / techo inicial
-        build: 110.44,          // comienza el gran buildup: aquí nace el agujero
-        grow: 118.10,           // el agujero negro crece y dobla la luz
-        approach: 120.90,       // acercamiento intensificado al horizonte
-        entryPrep: 134.55,      // preparar la entrada (onset 02:14.55)
-        entry: 137.24,          // CLÍMAX 1: la cámara entra (convergencia)
-        void: 147.19,           // breakdown: vacío profundo (energía cae ~91%)
-        reentry: 159.23,        // comienza la reentrada
-        birthStart: 160.47,     // gran onset: Acuario nace progresivamente
-        birthEnd: 169.17,       // el universo nuevo está completo
-        interactionOpen: 171.5  // fin del cine: se tocan las 14 estrellas
+        firstSound: 2.43,       // real: fin del silencio, primer sonido
+        riseBegin: 10.0,        // ascenso gradual ya perceptible
+        warpBegin: 16.15,       // real: primer pequeño golpe -> arranca el vuelo
+        holeReveal: 24.5,       // real: golpe fuerte (pico rms) -> aparece Gargantúa
+        holeIntensify: 26.4,    // real: golpe más fuerte -> horizonte al máximo
+        approach: 28.3,         // acercamiento final, la cámara se precipita
+        entry: 30.0,            // se cruza el horizonte
+        voidAt: 31.9,           // corte breve a negro (cruce, no una espera larga)
+        birthStart: 33.4,       // Acuario empieza a nacer
+        birthEnd: 38.0,         // el universo nuevo está completo
+        interactionOpen: 39.5   // fin del cine: se tocan las 14 estrellas
     };
 
     // Comprime la travesía si el usuario pide explícitamente menos movimiento
@@ -257,6 +259,8 @@
             disc: 0,
             ring: 0,
             scale: 1,
+            warp: 0,
+            galaxyT: 0,
             layers: { far: 0, mid: 0, near: 0 }
         }
     };
@@ -265,7 +269,7 @@
         return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
     }
 
-    const cinemaLockedPhases = ['hold', 'dawn', 'approach', 'blackhole', 'entrance', 'void'];
+    const cinemaLockedPhases = ['hold', 'dawn', 'warp', 'blackhole', 'void'];
 
     // Reacciones de la escena al cambiar de fase (una vez por transición).
     function onCinemaPhase(phase) {
@@ -282,43 +286,31 @@
         }
 
         // El velo negro se retira cuando suena el primer sonido (02.43) y el
-        // telón se vuelve transparente cuando entra la capa armónica (16.00):
+        // telón se vuelve transparente al entrar en el vuelo (warp, 16.15s):
         // el cielo del canvas queda a la vista durante el resto de la travesía.
         if (phase === 'dawn') {
             if (backdrop) backdrop.classList.add('dim');
             if (introOverlay) introOverlay.classList.add('cinema-fade');
-            console.debug('[CINEMA] -> dawn (telón: backdrop.dim + introOverlay.cinema-fade -> transparente 02.43→16s)');
-        } else if (phase === 'approach' || phase === 'blackhole') {
+        } else if (phase === 'warp' || phase === 'blackhole') {
             if (introOverlay) introOverlay.classList.add('cinema-clear');
-            console.debug('[CINEMA] -> ' + phase + ' (telón introOverlay.cinema-clear) hole=' + cinema.conf.hole);
         }
 
-        if (phase === 'dawn' || phase === 'approach' || phase === 'blackhole' || phase === 'void' || phase === 'birth' || phase === 'done') {
-            console.debug('[CINEMA] onCinemaPhase=' + phase + ' cinema.active=' + cinema.active + ' conf.hole=' + (cinema.conf ? cinema.conf.hole : '?'));
-        }
-
-        if (phase === 'hold' || phase === 'void' || phase === 'dawn') {
-            // Fases separadas. hold conserva un cielo tenue (nebula visible,
-            // nunca 0: el espacio no debe quedar negro al pulsar Comenzar);
-            // dawn lo revela progresivamente (esta capa sube de 0.15 a 0.25) y
-            // SOLO void apaga el cielo a negro (ahí sí corresponde el vacío).
-            if (phase === 'void') {
-                if (nebulaEl) nebulaEl.style.opacity = '0';
-                if (M) M.duck(true, 1.4); // la música cae al vacío
-            } else if (phase === 'hold') {
-                if (nebulaEl) nebulaEl.style.opacity = '0.15';
-            } else {
-                if (nebulaEl) nebulaEl.style.opacity = '0.25';
-            }
-        } else if (phase === 'entrance') {
-            if (nebulaEl) nebulaEl.style.opacity = '0.08';
+        if (phase === 'hold') {
+            if (nebulaEl) nebulaEl.style.opacity = '0.15';
+        } else if (phase === 'dawn') {
+            if (nebulaEl) nebulaEl.style.opacity = '0.25';
+        } else if (phase === 'warp' || phase === 'blackhole') {
+            // Vuelo por el cosmos / Gargantúa: el espacio profundo se mantiene
+            // presente, un poco más vivo que en dawn.
+            if (nebulaEl) nebulaEl.style.opacity = '0.3';
+        } else if (phase === 'void') {
+            // Vacío BREVE (cruce del horizonte, ~1.5s): un respiro corto, no
+            // una espera larga. La música baja un instante y sube enseguida.
+            if (nebulaEl) nebulaEl.style.opacity = '0';
+            if (M) M.duck(true, 0.6);
         } else if (phase === 'birth' || phase === 'done') {
             if (nebulaEl) nebulaEl.style.opacity = '0.55';
-            if (M) M.duck(false, 2.4); // el universo nuevo nace: la música vuelve
-        } else {
-            // approach / blackhole: el espacio profundo permanece igual de
-            // presente que al final del dawn (sin caídas de brillo).
-            if (nebulaEl) nebulaEl.style.opacity = '0.25';
+            if (M) M.duck(false, 1.2); // el universo nuevo nace: la música vuelve rápido
         }
 
         if (phase === 'birth' && !cinema.birthSent) {
@@ -330,8 +322,8 @@
     // El universo nuevo: las estrellas de Acuario aparecen una a una (misma
     // geometría real, sin nodos nuevos). Primero se apagan todas para partir de
     // cielo vacío y luego se encienden en orden suave DENTRO de la ventana
-    // musical [birthStart, birthEnd] (02:40.47 → 02:49.17). Con
-    // prefers-reduced-motion el revelado se comprime igual que el cine.
+    // [birthStart, birthEnd] (33.4s → 38.0s, ≈4.6s). Con prefers-reduced-motion
+    // el revelado se comprime igual que el cine.
     function scheduleBirthReveal() {
         Array.prototype.forEach.call(
             document.querySelectorAll('#stars-container .star-node'),
@@ -341,8 +333,8 @@
             }
         );
         const m = rmScale();
-        const stepMs = 620 * m;
-        const startMs = 400 * m;
+        const stepMs = 300 * m;
+        const startMs = 200 * m;
         BIRTH_REVEAL_ORDER.forEach((id, i) => {
             introTimers.push(setTimeout(() => {
                 const node = document.getElementById('star-node-' + id);
@@ -395,15 +387,13 @@
         const T = TIMELINE;
         // Puntos de la partitura (escalados si el usuario pide poco movimiento).
         const firstSound = T.firstSound * m;
-        const harmony = T.harmony * m;
-        const introPeak = T.introPeak * m;
-        const build = T.build * m;
-        const grow = T.grow * m;
+        const riseBegin = T.riseBegin * m;
+        const warpBegin = T.warpBegin * m;
+        const holeReveal = T.holeReveal * m;
+        const holeIntensify = T.holeIntensify * m;
         const approachAt = T.approach * m;
-        const entryPrep = T.entryPrep * m;
         const entry = T.entry * m;
-        const voidAt = T.void * m;
-        const reentry = T.reentry * m;
+        const voidAt = T.voidAt * m;
         const birthStart = T.birthStart * m;
         const birthEnd = T.birthEnd * m;
         const interactionOpen = T.interactionOpen * m;
@@ -422,6 +412,7 @@
         let disc = 0;
         let ring = 0;
         let scale = 1;
+        let warp = 0;
         let lf = 0;
         let lm = 0;
         let ln = 0;
@@ -430,122 +421,104 @@
         const seg = (start, end) => (t - start) / (end - start);
 
         if (t < firstSound) {
-            // 00:00.00–00:02.43 · Silencio inicial: pantalla prácticamente negra.
+            // Silencio real confirmado (rms=0): pantalla prácticamente negra.
             phase = 'hold';
             lf = 0.02;
             lm = 0.01;
             ln = 0.005;
-        } else if (t < harmony) {
-            // 00:02.43–00:16.00 · Primer sonido: nacen estrellas/partículas
-            // extremadamente sutiles y el espacio empieza a aparecer.
+        } else if (t < riseBegin) {
+            // Primer sonido real: nacen partículas muy sutiles.
             phase = 'dawn';
-            lf = lerp(0.02, 0.22, seg(firstSound, harmony));
-            lm = lerp(0.01, 0.08, seg(firstSound, harmony));
-            ln = lerp(0.005, 0.03, seg(firstSound, harmony));
-        } else if (t < introPeak) {
-            // 00:16.00–00:41.15 · Capa armónica: aumentar profundidad y cantidad.
-            phase = 'approach';
-            lf = lerp(0.22, 0.5, seg(harmony, introPeak));
-            lm = lerp(0.08, 0.3, seg(harmony, introPeak));
-            ln = lerp(0.03, 0.15, seg(harmony, introPeak));
-            scale = 1 - 0.02 * seg(harmony, introPeak);
-        } else if (t < build) {
-            // 00:41.15–01:50.44 · Desarrollo: acercamiento progresivo al espacio
-            // profundo. Aún NO se muestra la constelación completa.
-            phase = 'approach';
-            lf = lerp(0.5, 0.68, seg(introPeak, build));
-            lm = lerp(0.3, 0.5, seg(introPeak, build));
-            ln = lerp(0.15, 0.3, seg(introPeak, build));
-            scale = 1 - 0.1 * seg(introPeak, build);
-        } else if (t < grow) {
-            // 01:50.44–01:58.10 · Comienza el gran buildup: nace el agujero negro
-            // y crece progresivamente.
+            const p = seg(firstSound, riseBegin);
+            lf = lerp(0.02, 0.14, p);
+            lm = lerp(0.01, 0.05, p);
+            ln = lerp(0.005, 0.02, p);
+        } else if (t < warpBegin) {
+            // Ascenso gradual hacia el primer golpe real (16.15s).
+            phase = 'dawn';
+            const p = seg(riseBegin, warpBegin);
+            lf = lerp(0.14, 0.26, p);
+            lm = lerp(0.05, 0.12, p);
+            ln = lerp(0.02, 0.05, p);
+        } else if (t < holeReveal) {
+            // VUELO POR EL COSMOS: estelas de hiperespacio + galaxias cruzando
+            // (estilo Interstellar), acelerando hacia el primer golpe fuerte
+            // real de la partitura (24.5s, pico de energía verificado).
+            phase = 'warp';
+            const p = seg(warpBegin, holeReveal);
+            warp = lerp(0.15, 0.85, cinemaEase(p));
+            lf = lerp(0.26, 0.55, p);
+            lm = lerp(0.12, 0.42, p);
+            ln = lerp(0.05, 0.24, p);
+            scale = 1 - 0.05 * p;
+        } else if (t < holeIntensify) {
+            // Gargantúa aparece justo en el golpe fuerte real (24.5s).
             phase = 'blackhole';
-            const p1 = seg(build, grow);
+            const p = seg(holeReveal, holeIntensify);
             hole = true;
-            lens = lerp(0, 0.55, p1);
-            ring = lerp(0, 0.55, p1);
-            disc = lerp(0, 0.45, p1);
-            lf = 0.62;
-            lm = 0.5 * p1;
-            ln = 0.26 * p1;
+            warp = lerp(0.85, 0.4, p);
+            lens = lerp(0, 0.6, p);
+            ring = lerp(0, 0.6, p);
+            disc = lerp(0, 0.5, p);
+            lf = 0.6;
+            lm = lerp(0.42, 0.55, p);
+            ln = lerp(0.24, 0.34, p);
         } else if (t < approachAt) {
-            // 01:58.10–02:00.90 · El agujero crece y empieza a doblar la luz.
+            // Segundo golpe real (26.4s, el más fuerte del tramo): el
+            // horizonte alcanza su máxima intensidad, lente al 100%.
             phase = 'blackhole';
-            const p2 = seg(grow, approachAt);
+            const p = seg(holeIntensify, approachAt);
             hole = true;
-            lens = lerp(0.55, 0.95, p2);
-            ring = lerp(0.55, 0.95, p2);
-            disc = lerp(0.45, 0.8, p2);
-            lf = 0.62;
-            lm = lerp(0.5, 0.7, p2);
-            ln = lerp(0.26, 0.46, p2);
-        } else if (t < entryPrep) {
-            // 02:00.90–02:14.55 · Acercamiento intensificado: caída hacia el disco.
-            phase = 'approach';
-            const p3 = seg(approachAt, entryPrep);
-            hole = true;
-            lens = 1;
-            ring = 1;
-            disc = 1;
-            scale = 1 - 0.28 * cinemaEase(p3);
-            lf = 0.62;
-            lm = 0.6;
-            ln = 0.4;
-        } else if (t < entry) {
-            // 02:14.55–02:17.24 · Onset fuerte: preparar la entrada al horizonte.
-            phase = 'approach';
-            const p4 = seg(entryPrep, entry);
-            hole = true;
-            lens = 1;
-            ring = 1;
-            disc = 1;
-            scale = 1 - 0.36 * cinemaEase(p4);
+            warp = lerp(0.4, 0.1, p);
+            lens = lerp(0.6, 1, p);
+            ring = lerp(0.6, 1, p);
+            disc = lerp(0.5, 0.9, p);
             lf = 0.6;
             lm = 0.55;
-            ln = 0.35;
-        } else if (t < voidAt) {
-            // 02:17.24–02:27.19 · CLÍMAX 1: LA CÁMARA ENTRA. Convergencia,
-            // distorsión, movimiento hacia el centro y pérdida del espacio
-            // anterior (escala → 0.06, fundido a negro).
-            phase = 'entrance';
-            const p5 = seg(entry, voidAt);
+            ln = 0.34;
+        } else if (t < entry) {
+            // Caída final: la cámara se precipita hacia el horizonte.
+            phase = 'blackhole';
+            const p = seg(approachAt, entry);
             hole = true;
             lens = 1;
             ring = 1;
             disc = 1;
-            scale = 1 - 0.94 * cinemaEase(p5);
-            black = p5;
+            scale = lerp(1, 0.45, cinemaEase(p));
             lf = 0.6;
-            lm = 0.5;
-            ln = 0.3;
-        } else if (t < reentry) {
-            // 02:27.19–02:39.23 · BREAKDOWN/vacío de transición: casi negro,
-            // muy pocas partículas, sensación de vacío. Sin Acuario todavía.
+            lm = 0.55;
+            ln = 0.34;
+        } else if (t < voidAt) {
+            // CRUCE DEL HORIZONTE: un corte BREVE (~1.9s), no una larga espera.
+            phase = 'blackhole';
+            const p = seg(entry, voidAt);
+            hole = true;
+            lens = 1;
+            ring = 1;
+            disc = lerp(1, 0.5, p);
+            scale = lerp(0.45, 0.05, cinemaEase(p));
+            black = cinemaEase(p);
+            lf = lerp(0.6, 0.05, p);
+            lm = lerp(0.55, 0.04, p);
+            ln = lerp(0.34, 0.02, p);
+        } else if (t < birthStart) {
+            // Vacío breve: un respiro corto antes del renacimiento.
             phase = 'void';
             black = 1;
             lf = 0.02;
             lm = 0.01;
             ln = 0;
-        } else if (t < birthStart) {
-            // 02:39.23–02:40.47 · Comienza la reentrada: el vacío empieza a ceder.
-            phase = 'void';
-            const p6 = seg(reentry, birthStart);
-            black = lerp(1, 0.88, p6);
-            lf = lerp(0.02, 0.12, p6);
-            lm = lerp(0.01, 0.05, p6);
-            ln = 0;
         } else if (t < birthEnd) {
-            // 02:40.47–02:49.17 · NACIMIENTO: el nuevo universo emerge y Acuario
-            // aparece estrella a estrella (revelado real, sin un salto).
+            // NACIMIENTO: el nuevo universo emerge y Acuario aparece estrella
+            // a estrella (revelado real, sin un salto).
             phase = 'birth';
-            const p7 = seg(birthStart, birthEnd);
-            black = lerp(0.88, 0, p7);
-            lf = lerp(0.12, 1, Math.min(1, p7 * 1.1));
-            lm = lerp(0.05, 1, Math.max(0, (p7 - 0.2) / 0.8));
-            ln = Math.max(0, (p7 - 0.42) / 0.58);
+            const p = seg(birthStart, birthEnd);
+            black = lerp(1, 0, p);
+            lf = lerp(0.12, 1, Math.min(1, p * 1.1));
+            lm = lerp(0.05, 1, Math.max(0, (p - 0.2) / 0.8));
+            ln = Math.max(0, (p - 0.42) / 0.58);
         } else {
-            // 02:49.17+ · Cielo pleno; el cine se cierra en interactionOpen.
+            // Cielo pleno; el cine se cierra en interactionOpen.
             phase = 'done';
             black = 0;
             lf = 1;
@@ -553,13 +526,24 @@
             ln = 1;
         }
 
+        // Progreso continuo del vuelo de galaxias (independiente de las
+        // sub-fases del agujero, para que nunca "salten" de posición): cruza
+        // varias veces la pantalla mientras dura el vuelo + la aproximación.
+        const GALAXY_CYCLES = 3.2;
+        let galaxyT = 0;
+        if (t >= warpBegin && t < entry) {
+            galaxyT = Math.max(0, Math.min(1, seg(warpBegin, entry))) * GALAXY_CYCLES;
+        }
+
         conf.black = black;
         conf.hole = hole;
         conf.lens = lens;
         conf.disc = disc;
         conf.ring = ring;
-        conf.scale = scale;
+        conf.scale = Math.max(0.03, scale);
         conf.holeR = baseR * (0.16 + ring * 0.84);
+        conf.warp = warp;
+        conf.galaxyT = galaxyT;
         conf.layers.far = lf;
         conf.layers.mid = lm;
         conf.layers.near = ln;
@@ -587,46 +571,109 @@
         const ring = conf.ring;
 
         if (ring > 0.03) {
-            // Resplandor tenue que rodea el horizonte (la lente se lee primero).
-            const glow = ctx.createRadialGradient(ex, ey, r, ex, ey, r * 6);
-            glow.addColorStop(0, 'rgba(255, 214, 170, ' + (0.10 * disc) + ')');
-            glow.addColorStop(0.55, 'rgba(176, 150, 255, ' + (0.05 * disc) + ')');
+            // Resplandor amplio que se derrama del horizonte (luz muy doblada).
+            const glow = ctx.createRadialGradient(ex, ey, r * 0.5, ex, ey, r * 7);
+            glow.addColorStop(0, 'rgba(255, 210, 155, ' + (0.15 * disc) + ')');
+            glow.addColorStop(0.45, 'rgba(170, 140, 255, ' + (0.06 * disc) + ')');
             glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
             ctx.fillStyle = glow;
             ctx.beginPath();
-            ctx.arc(ex, ey, r * 6, 0, Math.PI * 2);
+            ctx.arc(ex, ey, r * 7, 0, Math.PI * 2);
             ctx.fill();
 
-            // Disco de acreción (dos anillos desviados, rotando lentamente).
+            // Disco de acreción inclinado: UNA banda ancha con degradado vertical
+            // (más brillante/cálida arriba, más tenue/fría abajo) para sugerir el
+            // "beaming" relativista real de un agujero como Gargantúa, en vez de
+            // dos anillos simétricos.
             ctx.save();
             ctx.translate(ex, ey);
-            ctx.globalAlpha = Math.min(1, ring * 0.9);
-            ctx.strokeStyle = 'rgba(230, 205, 178, 1)';
-            ctx.lineWidth = Math.max(1.2, r * 0.075);
+            const wobble = 0.015 * Math.sin(now * 0.0004);
+            ctx.rotate(0.34 + wobble);
+            const discGrad = ctx.createLinearGradient(0, -r * 1.15, 0, r * 1.15);
+            discGrad.addColorStop(0, 'rgba(255, 238, 214, ' + (0.95 * ring) + ')');
+            discGrad.addColorStop(0.5, 'rgba(255, 190, 130, ' + (0.55 * ring) + ')');
+            discGrad.addColorStop(1, 'rgba(140, 100, 90, ' + (0.25 * ring) + ')');
+            ctx.strokeStyle = discGrad;
+            ctx.lineWidth = Math.max(1.6, r * 0.17 * disc);
             ctx.beginPath();
-            ctx.ellipse(0, 0, r * (1.9 + 0.03 * Math.sin(now * 0.001)), r * 0.9, 0.35, 0, Math.PI * 2);
+            ctx.ellipse(0, 0, r * 2.05, r * 0.6, 0, 0, Math.PI * 2);
             ctx.stroke();
+            ctx.restore();
 
-            ctx.globalAlpha = Math.min(1, ring * 0.65);
-            ctx.strokeStyle = 'rgba(196, 176, 255, 1)';
-            ctx.lineWidth = Math.max(1, r * 0.05);
+            // Anillo de fotones: fino, nítido y muy brillante (la silueta que se
+            // reconoce de un agujero negro real, no un aro grueso difuso).
+            ctx.save();
+            ctx.translate(ex, ey);
+            ctx.globalAlpha = Math.min(1, ring);
+            ctx.strokeStyle = 'rgba(255, 246, 226, 0.95)';
+            ctx.lineWidth = Math.max(1, r * 0.045);
+            ctx.shadowColor = 'rgba(255, 224, 178, 0.9)';
+            ctx.shadowBlur = r * 0.5;
             ctx.beginPath();
-            ctx.ellipse(0, 0, r * (1.42 + 0.03 * Math.cos(now * 0.0009)), r * 0.68, 0.35, 0, Math.PI * 2);
+            ctx.ellipse(0, 0, r * 1.04, r * 1.0, 0, 0, Math.PI * 2);
             ctx.stroke();
             ctx.restore();
         }
 
-        // Núcleo: oscuro y sólido (las estrellas que caen tras él desaparecen).
+        // Núcleo: horizonte de sucesos oscuro y sólido (las estrellas que caen
+        // tras él desaparecen; nada de luz escapa de dentro).
         if (r > 0) {
-            const core = ctx.createRadialGradient(ex, ey, r * 0.2, ex, ey, r * 1.5);
+            const core = ctx.createRadialGradient(ex, ey, r * 0.15, ex, ey, r * 1.05);
             core.addColorStop(0, '#000000');
-            core.addColorStop(0.72, '#010208');
+            core.addColorStop(0.8, '#010208');
             core.addColorStop(1, 'rgba(1, 2, 8, 0)');
             ctx.fillStyle = core;
             ctx.beginPath();
-            ctx.arc(ex, ey, r * 1.5, 0, Math.PI * 2);
+            ctx.arc(ex, ey, r * 1.05, 0, Math.PI * 2);
             ctx.fill();
         }
+    }
+
+    // Definición fija de "galaxias" lejanas que cruzan la pantalla durante el
+    // vuelo (fase warp) y la aproximación al agujero: cada una tiene un ángulo
+    // fijo y una paleta propia, y su posición/tamaño se derivan de un progreso
+    // continuo (conf.galaxyT) para que nunca salten de sitio entre frames.
+    const GALAXY_DEFS = [
+        { angle: 0.4, c1: 'rgba(255,196,140,', c2: 'rgba(255,150,90,' },
+        { angle: 2.1, c1: 'rgba(150,190,255,', c2: 'rgba(120,150,255,' },
+        { angle: 3.6, c1: 'rgba(220,160,255,', c2: 'rgba(180,110,255,' },
+        { angle: 5.0, c1: 'rgba(140,230,220,', c2: 'rgba(100,200,190,' },
+        { angle: 1.3, c1: 'rgba(255,210,230,', c2: 'rgba(255,170,200,' },
+        { angle: 4.4, c1: 'rgba(200,220,255,', c2: 'rgba(160,190,255,' }
+    ];
+
+    // Nubes/galaxias lejanas que crecen y se desplazan hacia los bordes de la
+    // pantalla mientras se vuela entre ellas (sensación de atravesar el cosmos
+    // real antes de llegar al agujero negro, no solo estrellas puntuales).
+    function drawGalaxyField(ctx, conf, now) {
+        if (!conf || !conf.galaxyT || conf.galaxyT <= 0) return;
+        const ex = conf.ex;
+        const ey = conf.ey;
+        const maxR = Math.max(160, Math.min(window.innerWidth, window.innerHeight) * 0.62);
+        const n = GALAXY_DEFS.length;
+
+        GALAXY_DEFS.forEach((g, i) => {
+            const prog = (conf.galaxyT + i / n) % 1;
+            const eased = cinemaEase(prog);
+            const dist = eased * maxR;
+            const size = 10 + eased * 95;
+            const alpha = Math.sin(prog * Math.PI) * 0.42;
+            if (alpha <= 0.01) return;
+
+            const wobble = Math.sin(now * 0.00025 + i * 1.7) * 0.12;
+            const ang = g.angle + wobble;
+            const gx = ex + Math.cos(ang) * dist;
+            const gy = ey + Math.sin(ang) * dist * 0.72;
+
+            const grad = ctx.createRadialGradient(gx, gy, 0, gx, gy, size);
+            grad.addColorStop(0, g.c1 + (alpha * 0.9) + ')');
+            grad.addColorStop(0.5, g.c2 + (alpha * 0.4) + ')');
+            grad.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.ellipse(gx, gy, size, size * 0.55, ang, 0, Math.PI * 2);
+            ctx.fill();
+        });
     }
 
     // Elementos del DOM
@@ -1133,12 +1180,38 @@
                     ctx.drawImage(halo, px - 20, py - 20, 40, 40);
                 }
                 ctx.globalAlpha = alpha;
-                ctx.fillStyle = 'rgba(222, 230, 255, 1)';
-                ctx.beginPath();
-                ctx.arc(px, py, s.radius, 0, Math.PI * 2);
-                ctx.fill();
+
+                // Vuelo por el cosmos (fase warp): las estrellas se estiran en
+                // estelas radiales desde el centro, como un salto a hiperespacio,
+                // en vez de puntos fijos. Reutiliza las mismas posiciones, sin
+                // partículas nuevas.
+                if (c && c.warp > 0.03) {
+                    const wx = px - c.ex;
+                    const wy = py - c.ey;
+                    const wd = Math.hypot(wx, wy) || 1;
+                    const ux = wx / wd;
+                    const uy = wy / wd;
+                    const streakLen = c.warp * (16 + wd * 0.14);
+                    ctx.strokeStyle = 'rgba(222, 230, 255, ' + alpha + ')';
+                    ctx.lineWidth = s.radius * (0.8 + c.warp * 1.3);
+                    ctx.beginPath();
+                    ctx.moveTo(px, py);
+                    ctx.lineTo(px + ux * streakLen, py + uy * streakLen);
+                    ctx.stroke();
+                } else {
+                    ctx.fillStyle = 'rgba(222, 230, 255, 1)';
+                    ctx.beginPath();
+                    ctx.arc(px, py, s.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
             }
             ctx.globalAlpha = 1;
+
+            // Galaxias lejanas cruzando durante el vuelo (entre el starfield y
+            // el agujero negro, como fondo cósmico atravesado).
+            if (c) {
+                drawGalaxyField(ctx, c, now);
+            }
 
             // Agujero negro: disco de acreción y horizonte sobre el cielo.
             if (c && c.hole) {
