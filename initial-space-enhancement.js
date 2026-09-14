@@ -69,8 +69,7 @@
         [3, 8], [8, 9], [9, 10], [9, 11], [11, 14], [10, 12], [12, 13]
     ];
 
-    // El canvas mantiene su propio estado visual, pero los mensajes siguen
-    // perteneciendo a script.js. Así no duplicamos ni cambiamos el contenido.
+    // Estado visual de la capa que ocupa la pantalla.
     let discovered = new Set();
     let activeId = 1;
     let interactive = false;
@@ -276,7 +275,6 @@
         const revealT = progress * AQUARIUS.length;
 
         AQUARIUS.forEach((star, index) => {
-            // Todas permanecen visibles cuando la figura queda completa.
             const local = clamp(revealT - index);
             if (local <= 0) return;
 
@@ -285,13 +283,18 @@
             const done = discovered.has(star.id);
             const isActive = interactive && star.id === activeId;
 
-            // Descubiertas: brillan normales. La siguiente a tocar respira un poco.
-            // Las demás siguen siendo visibles pero algo más serenas.
             const emphasis = done ? 1.55 : (isActive ? 1.75 : 1.35);
             const alpha = done ? 1.0 : (isActive ? 0.94 : 0.68);
             const radius = done ? 2.15 : (isActive ? 2.30 : 1.85);
 
-            drawCrispStar(pos.x, pos.y, radius, alpha * (0.30 + 0.70 * p), t, emphasis);
+            drawCrispStar(
+                pos.x,
+                pos.y,
+                radius,
+                alpha * (0.30 + 0.70 * p),
+                t,
+                emphasis
+            );
 
             if (p < 1) {
                 const flash = Math.sin(p * Math.PI);
@@ -309,7 +312,6 @@
                 ctx.fill();
             }
 
-            // Una pequeña onda muy discreta señala cuál es la siguiente estrella.
             if (isActive && p >= 1) {
                 const pulse = 0.5 + 0.5 * Math.sin(t * 2.2);
                 ctx.strokeStyle = 'rgba(224,235,255,' + (0.10 + pulse * 0.08) + ')';
@@ -320,7 +322,6 @@
             }
         });
 
-        // Las líneas se van escribiendo durante el nacimiento y luego permanecen.
         const lineProgress = clamp((progress - 0.45) / 0.55);
         LINES.forEach((line, index) => {
             const local = clamp(lineProgress * LINES.length - index);
@@ -353,13 +354,22 @@
     }
 
     function syncInteractionState() {
-        // script.js no expone el Set directamente, así que este puente se alimenta
-        // desde el callback que instalamos abajo cuando termina cada mensaje.
-        const hook = window.__cinematicStarState;
-        if (hook && typeof hook === 'object') {
-            if (Array.isArray(hook.discovered)) discovered = new Set(hook.discovered);
-            if (Number.isFinite(hook.active)) activeId = hook.active;
-        }
+        // Leemos el estado de los nodos reales creados por script.js. Esto evita
+        // duplicar su Set de descubrimientos y mantiene una sola fuente de verdad.
+        const nodes = document.querySelectorAll('#stars-container .star-node');
+        const nextDiscovered = new Set();
+        let nextActive = activeId;
+
+        nodes.forEach((node) => {
+            const match = /star-node-(\d+)/.exec(node.id || '');
+            if (!match) return;
+            const id = Number(match[1]);
+            if (node.classList.contains('discovered')) nextDiscovered.add(id);
+            if (node.classList.contains('active')) nextActive = id;
+        });
+
+        if (nextDiscovered.size || nodes.length) discovered = nextDiscovered;
+        if (Number.isFinite(nextActive)) activeId = nextActive;
     }
 
     function clickNearestStar(clientX, clientY) {
@@ -379,12 +389,10 @@
             }
         });
 
-        // Área generosa para móvil, pero no tan amplia como para tocar otra estrella.
         const hitRadius = Math.max(22, Math.min(34, Math.min(width, height) * 0.045));
         if (!nearest || nearestDist > hitRadius) return;
 
-        // Reutilizamos el listener real del nodo original. Así permanecen intactos
-        // el orden, bloqueo de estrellas, modal, sonido, vibración y cierre.
+        // El nodo real mantiene intactos orden, bloqueo, modal, sonidos y final.
         const realNode = document.getElementById('star-node-' + nearest.id);
         if (realNode) realNode.click();
     }
@@ -403,8 +411,6 @@
     function frame(now) {
         if (!running) return;
 
-        // En el momento en que termina el último mensaje, el final existente toma
-        // el control y este cielo deja de ser necesario.
         if (document.body.classList.contains('constellation-complete')) {
             finishInteractiveSky();
             return;
@@ -417,16 +423,12 @@
         drawConstellation(t);
 
         if (!interactive && t >= TOTAL) {
-            // La cinemática ya terminó: no cambiamos de escena. El mismo dibujo
-            // queda quieto y se convierte inmediatamente en la interfaz.
             interactive = true;
             canvas.style.pointerEvents = 'auto';
             canvas.style.cursor = 'pointer';
             syncInteractionState();
         }
 
-        // Después de la formación completa mantenemos solo un frame suave para que
-        // la estrella activa continúe respirando. No se reemplaza el cielo.
         raf = requestAnimationFrame(frame);
     }
 
