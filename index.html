@@ -12,37 +12,22 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Background starfield canvas -->
     <canvas id="starfield" aria-hidden="true"></canvas>
-
-    <!-- Subtle nebula overlay -->
     <div id="nebula" aria-hidden="true"></div>
-
-    <!-- Constelaciones reales del zodíaco orbitando (celestial.js) -->
     <canvas id="celestial-map" aria-hidden="true"></canvas>
 
-    <!-- Universe master container (zooms out at the finale) -->
     <div id="universe-container">
-        <!-- SVG for constellation connection lines -->
         <svg id="constellation-lines" aria-hidden="true"></svg>
-
-        <!-- Interactive constellation stars -->
         <div id="stars-container"></div>
     </div>
 
-
-
-
-    <!-- Hint text -->
     <div id="hint"></div>
 
-    <!-- Intro overlay (entrada escenificada, el cielo se ve a través) -->
     <div id="intro-overlay" role="dialog" aria-label="Introducción">
         <div id="intro-backdrop" aria-hidden="true"></div>
         <button id="intro-begin" type="button" aria-label="Comenzar la experiencia">Comenzar</button>
     </div>
 
-    <!-- Message modal -->
     <div id="modal-overlay" role="dialog" aria-label="Mensaje de estrella">
         <div id="modal">
             <div class="modal-header">
@@ -58,7 +43,6 @@
         </div>
     </div>
 
-    <!-- Finale overlay -->
     <div id="finale-overlay" role="dialog" aria-label="Mensaje final">
         <div id="finale-content">
             <div id="finale-message" aria-live="polite"></div>
@@ -72,6 +56,7 @@
     <script src="zodiac-data.js"></script>
     <script src="celestial.js"></script>
     <script src="music.js"></script>
+    <script src="cinematic-enhancement.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
