@@ -1,8 +1,10 @@
 /*
  * Intro cinematográfica: cielo nocturno -> cámara se desplaza -> Acuario aparece.
  *
- * El cielo completo usa el mismo lenguaje visual de estrellas nítidas y luminosas.
- * No modifica la geometría ni la interacción real de la constelación.
+ * La constelación que nace aquí ES la constelación interactiva.
+ * Cuando termina de formarse, las mismas estrellas reciben los toques y delegan
+ * en la lógica existente de script.js para abrir los 14 mensajes.
+ * No se crea una segunda constelación visual.
  */
 (function () {
     'use strict';
@@ -15,10 +17,11 @@
         'inset:0',
         'width:100%',
         'height:100%',
-        'z-index:20',
+        'z-index:200',
         'pointer-events:none',
         'display:none',
-        'opacity:1'
+        'opacity:1',
+        'cursor:pointer'
     ].join(';');
     document.body.appendChild(canvas);
 
@@ -38,13 +41,10 @@
         window.matchMedia('(prefers-reduced-motion: reduce)').matches
     );
 
-    // Misma duración de la intro existente para conservar el sincronismo con música/interacción.
     const TOTAL = 39.5;
-    const SKY_FOCUS_END = 15.0;
     const CAMERA_MOVE_START = 15.0;
     const CONSTELLATION_START = 27.0;
     const CONSTELLATION_FULL = 36.8;
-    const FADE_TO_REAL = 38.7;
 
     // EXACTAMENTE las mismas 14 posiciones de Acuario existentes.
     const AQUARIUS = [
@@ -69,9 +69,19 @@
         [3, 8], [8, 9], [9, 10], [9, 11], [11, 14], [10, 12], [12, 13]
     ];
 
-    // -------------------------------------------------------------------------
-    // Cielo base
-    // -------------------------------------------------------------------------
+    // El canvas mantiene su propio estado visual, pero los mensajes siguen
+    // perteneciendo a script.js. Así no duplicamos ni cambiamos el contenido.
+    let discovered = new Set();
+    let activeId = 1;
+    let interactive = false;
+    let startedAt = 0;
+    let running = false;
+    let raf = 0;
+    let width = 1;
+    let height = 1;
+    let dpr = 1;
+    let currentTime = 0;
+
     const bgStars = [];
     let seed = 81211;
 
@@ -107,14 +117,6 @@
     makeShootingStar(23.7, 0.83, 0.55, 2.73, 0.92, 0.22, 0.76);
     makeShootingStar(29.6, 0.26, 0.25, 0.54, 0.72, 0.17, 0.70);
 
-    let startedAt = 0;
-    let running = false;
-    let raf = 0;
-    let width = 1;
-    let height = 1;
-    let dpr = 1;
-    let currentTime = 0;
-
     function resize() {
         width = window.innerWidth;
         height = window.innerHeight;
@@ -149,13 +151,9 @@
         return (now - startedAt) / 1000;
     }
 
-    // -------------------------------------------------------------------------
-    // Cámara: un desplazamiento suave y continuo, no un cambio brusco de escena.
-    // -------------------------------------------------------------------------
     function getCamera(t) {
         const p = clamp((t - CAMERA_MOVE_START) / 21.0);
         const eased = easeInOut(p);
-
         return {
             x: Math.sin(eased * Math.PI * 0.5) * width * 0.085,
             y: Math.cos(eased * Math.PI * 0.5) * height * 0.022,
@@ -163,16 +161,12 @@
         };
     }
 
-    // -------------------------------------------------------------------------
-    // Estrella nítida: núcleo pequeño + halo + cuatro puntas muy sutiles.
-    // Esta es la estética que comparten ahora cielo y constelación.
-    // -------------------------------------------------------------------------
+    // Estilo único para TODAS las estrellas: núcleo duro, halo limpio y puntas.
     function drawCrispStar(x, y, radius, alpha, t, emphasis = 1) {
         const pulse = 0.88 + 0.12 * Math.sin(t * 1.65 + x * 0.009 + y * 0.007);
         const a = clamp(alpha * pulse, 0, 1);
         const r = Math.max(0.55, radius * (0.9 + emphasis * 0.14));
 
-        // Halo muy limpio, sin volver la estrella borrosa.
         if (r > 1.0 || emphasis > 1.25) {
             const glowR = r * (5.0 + emphasis * 1.8);
             const glow = ctx.createRadialGradient(x, y, 0, x, y, glowR);
@@ -185,7 +179,6 @@
             ctx.fill();
         }
 
-        // Cuatro destellos finos para las estrellas más grandes.
         if (r > 1.25 || emphasis > 1.25) {
             const ray = r * (3.0 + emphasis * 1.35);
             const rayAlpha = a * 0.34;
@@ -199,15 +192,13 @@
             ctx.stroke();
         }
 
-        // Núcleo duro y blanco.
-        ctx.fillStyle = 'rgba(255,255,255,' + clamp(a, 0, 1) + ')';
+        ctx.fillStyle = 'rgba(255,255,255,' + a + ')';
         ctx.beginPath();
         ctx.arc(x, y, r, 0, Math.PI * 2);
         ctx.fill();
     }
 
     function drawBackground(t) {
-        // Cielo azul-negro continuo durante TODA la intro.
         const g = ctx.createLinearGradient(0, 0, width, height);
         g.addColorStop(0, '#02040b');
         g.addColorStop(0.40, '#050915');
@@ -216,7 +207,6 @@
         ctx.fillStyle = g;
         ctx.fillRect(0, 0, width, height);
 
-        // Bruma mínima, solo para dar profundidad.
         const haze = ctx.createRadialGradient(
             width * 0.27, height * 0.30, 0,
             width * 0.27, height * 0.30, Math.min(width, height) * 0.78
@@ -230,7 +220,6 @@
         const camera = getCamera(t);
 
         bgStars.forEach((s) => {
-            // Los planos con más profundidad se mueven apenas diferente para crear parallax.
             let sx = s.x * width + camera.x * s.depth;
             let sy = s.y * height + camera.y * s.depth;
             sx = ((sx % width) + width) % width;
@@ -241,7 +230,6 @@
             drawCrispStar(sx, sy, s.radius, alpha, t, s.crisp ? 1.1 : 0.8);
         });
 
-        // Estrellas fugaces, siempre sobre el mismo cielo.
         shooting.forEach((s) => {
             const local = t - s.delay;
             if (local < 0 || local > 1.15) return;
@@ -267,7 +255,6 @@
             ctx.lineTo(x, y);
             ctx.stroke();
 
-            // Punto luminoso de la cabeza de la fugaz.
             drawCrispStar(x, y, 1.25 + p * 0.9, s.alpha * p * 0.95, t, 1.35);
         });
     }
@@ -280,40 +267,32 @@
         };
     }
 
-    // -------------------------------------------------------------------------
-    // Aparición de Acuario.
-    // Primero las estrellas se confunden con el cielo; luego se encienden.
-    // Después las líneas se escriben una por una.
-    // -------------------------------------------------------------------------
     function drawConstellation(t) {
         if (t < CONSTELLATION_START) return;
 
         const progress = easeOut(
             (t - CONSTELLATION_START) / (CONSTELLATION_FULL - CONSTELLATION_START)
         );
-
         const revealT = progress * AQUARIUS.length;
 
         AQUARIUS.forEach((star, index) => {
-            // Entrada escalonada: no aparecen todas al mismo tiempo.
+            // Todas permanecen visibles cuando la figura queda completa.
             const local = clamp(revealT - index);
             if (local <= 0) return;
 
             const p = easeOut(local);
             const pos = constellationPoint(star, t);
+            const done = discovered.has(star.id);
+            const isActive = interactive && star.id === activeId;
 
-            // Halo exactamente del mismo estilo que una estrella brillante del cielo.
-            const emphasis = 1.55;
-            drawCrispStar(
-                pos.x,
-                pos.y,
-                2.0 + p * 1.05,
-                0.30 + 0.70 * p,
-                t,
-                emphasis
-            );
+            // Descubiertas: brillan normales. La siguiente a tocar respira un poco.
+            // Las demás siguen siendo visibles pero algo más serenas.
+            const emphasis = done ? 1.55 : (isActive ? 1.75 : 1.35);
+            const alpha = done ? 1.0 : (isActive ? 0.94 : 0.68);
+            const radius = done ? 2.15 : (isActive ? 2.30 : 1.85);
 
-            // Destello inicial corto, como si la estrella acabara de descubrirse.
+            drawCrispStar(pos.x, pos.y, radius, alpha * (0.30 + 0.70 * p), t, emphasis);
+
             if (p < 1) {
                 const flash = Math.sin(p * Math.PI);
                 const flashR = 7 + flash * 8;
@@ -329,11 +308,20 @@
                 ctx.arc(pos.x, pos.y, flashR, 0, Math.PI * 2);
                 ctx.fill();
             }
+
+            // Una pequeña onda muy discreta señala cuál es la siguiente estrella.
+            if (isActive && p >= 1) {
+                const pulse = 0.5 + 0.5 * Math.sin(t * 2.2);
+                ctx.strokeStyle = 'rgba(224,235,255,' + (0.10 + pulse * 0.08) + ')';
+                ctx.lineWidth = 0.85;
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, 5.0 + pulse * 2.0, 0, Math.PI * 2);
+                ctx.stroke();
+            }
         });
 
-        // Las líneas empiezan cuando ya hay varias estrellas visibles.
+        // Las líneas se van escribiendo durante el nacimiento y luego permanecen.
         const lineProgress = clamp((progress - 0.45) / 0.55);
-
         LINES.forEach((line, index) => {
             const local = clamp(lineProgress * LINES.length - index);
             if (local <= 0) return;
@@ -348,32 +336,79 @@
             const ex = pa.x + (pb.x - pa.x) * p;
             const ey = pa.y + (pb.y - pa.y) * p;
 
-            // Línea nítida, fina y discreta.
-            ctx.strokeStyle = 'rgba(205,218,244,' + (0.13 + 0.34 * p) + ')';
-            ctx.lineWidth = 0.9;
+            const connected = discovered.has(a.id) && discovered.has(b.id);
+            ctx.strokeStyle = connected
+                ? 'rgba(215,226,250,0.46)'
+                : 'rgba(205,218,244,' + (0.13 + 0.34 * p) + ')';
+            ctx.lineWidth = connected ? 1.0 : 0.9;
             ctx.beginPath();
             ctx.moveTo(pa.x, pa.y);
             ctx.lineTo(ex, ey);
             ctx.stroke();
 
-            // Pequeño punto de luz viajando por la línea mientras se dibuja.
             if (p < 1) {
                 drawCrispStar(ex, ey, 1.15, 0.72, t, 1.12);
             }
         });
+    }
 
-        // Una respiración final muy suave para que el cielo siga vivo.
-        if (progress > 0.82) {
-            const pulse = 0.82 + 0.18 * Math.sin(t * 1.6);
-            AQUARIUS.forEach((star) => {
-                const pos = constellationPoint(star, t);
-                drawCrispStar(pos.x, pos.y, 2.0, 0.50 * pulse, t, 1.18);
-            });
+    function syncInteractionState() {
+        // script.js no expone el Set directamente, así que este puente se alimenta
+        // desde el callback que instalamos abajo cuando termina cada mensaje.
+        const hook = window.__cinematicStarState;
+        if (hook && typeof hook === 'object') {
+            if (Array.isArray(hook.discovered)) discovered = new Set(hook.discovered);
+            if (Number.isFinite(hook.active)) activeId = hook.active;
         }
+    }
+
+    function clickNearestStar(clientX, clientY) {
+        if (!interactive) return;
+
+        syncInteractionState();
+
+        let nearest = null;
+        let nearestDist = Infinity;
+
+        AQUARIUS.forEach((star) => {
+            const pos = constellationPoint(star, currentTime);
+            const d = Math.hypot(clientX - pos.x, clientY - pos.y);
+            if (d < nearestDist) {
+                nearest = star;
+                nearestDist = d;
+            }
+        });
+
+        // Área generosa para móvil, pero no tan amplia como para tocar otra estrella.
+        const hitRadius = Math.max(22, Math.min(34, Math.min(width, height) * 0.045));
+        if (!nearest || nearestDist > hitRadius) return;
+
+        // Reutilizamos el listener real del nodo original. Así permanecen intactos
+        // el orden, bloqueo de estrellas, modal, sonido, vibración y cierre.
+        const realNode = document.getElementById('star-node-' + nearest.id);
+        if (realNode) realNode.click();
+    }
+
+    function finishInteractiveSky() {
+        interactive = false;
+        canvas.style.pointerEvents = 'none';
+        canvas.style.cursor = 'default';
+        canvas.style.display = 'none';
+        baseCanvas.style.visibility = '';
+        if (nebula) nebula.style.visibility = '';
+        running = false;
+        cancelAnimationFrame(raf);
     }
 
     function frame(now) {
         if (!running) return;
+
+        // En el momento en que termina el último mensaje, el final existente toma
+        // el control y este cielo deja de ser necesario.
+        if (document.body.classList.contains('constellation-complete')) {
+            finishInteractiveSky();
+            return;
+        }
 
         currentTime = musicTime(now);
         const t = prefersReducedMotion ? currentTime / 0.42 : currentTime;
@@ -381,20 +416,17 @@
         drawBackground(t);
         drawConstellation(t);
 
-        const fade = t > FADE_TO_REAL
-            ? clamp((t - FADE_TO_REAL) / (TOTAL - FADE_TO_REAL))
-            : 0;
-        canvas.style.opacity = String(1 - fade);
-
-        if (t >= TOTAL) {
-            running = false;
-            cancelAnimationFrame(raf);
-            canvas.style.display = 'none';
-            baseCanvas.style.visibility = '';
-            if (nebula) nebula.style.visibility = '';
-            return;
+        if (!interactive && t >= TOTAL) {
+            // La cinemática ya terminó: no cambiamos de escena. El mismo dibujo
+            // queda quieto y se convierte inmediatamente en la interfaz.
+            interactive = true;
+            canvas.style.pointerEvents = 'auto';
+            canvas.style.cursor = 'pointer';
+            syncInteractionState();
         }
 
+        // Después de la formación completa mantenemos solo un frame suave para que
+        // la estrella activa continúe respirando. No se reemplaza el cielo.
         raf = requestAnimationFrame(frame);
     }
 
@@ -402,13 +434,18 @@
         if (running) return;
 
         running = true;
+        interactive = false;
+        discovered = new Set();
+        activeId = 1;
         startedAt = performance.now();
         currentTime = 0;
 
         canvas.style.display = 'block';
         canvas.style.opacity = '1';
+        canvas.style.pointerEvents = 'none';
+        canvas.style.cursor = 'default';
 
-        // La escena antigua queda tapada: este canvas es ahora el único cielo visible.
+        // Los renderers antiguos quedan tapados durante toda la experiencia.
         baseCanvas.style.visibility = 'hidden';
         if (nebula) nebula.style.visibility = 'hidden';
 
@@ -417,6 +454,13 @@
         cancelAnimationFrame(raf);
         raf = requestAnimationFrame(frame);
     }
+
+    canvas.addEventListener('pointerup', function (e) {
+        if (!interactive) return;
+        e.preventDefault();
+        e.stopPropagation();
+        clickNearestStar(e.clientX, e.clientY);
+    }, { passive: false });
 
     window.addEventListener('resize', resize, { passive: true });
     button.addEventListener('click', begin, { capture: false });
