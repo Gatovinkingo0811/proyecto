@@ -1,8 +1,8 @@
 /*
  * Intro cinematográfica: cielo nocturno -> cámara se desplaza -> Acuario aparece.
  *
- * Este archivo sustituye por completo la antigua galaxia/agujero negro.
- * No usa librerías externas ni modifica la geometría/interacción existente.
+ * El cielo completo usa el mismo lenguaje visual de estrellas nítidas y luminosas.
+ * No modifica la geometría ni la interacción real de la constelación.
  */
 (function () {
     'use strict';
@@ -38,6 +38,7 @@
         window.matchMedia('(prefers-reduced-motion: reduce)').matches
     );
 
+    // Misma duración de la intro existente para conservar el sincronismo con música/interacción.
     const TOTAL = 39.5;
     const SKY_FOCUS_END = 15.0;
     const CAMERA_MOVE_START = 15.0;
@@ -45,7 +46,7 @@
     const CONSTELLATION_FULL = 36.8;
     const FADE_TO_REAL = 38.7;
 
-    // Las mismas 14 posiciones existentes de Acuario.
+    // EXACTAMENTE las mismas 14 posiciones de Acuario existentes.
     const AQUARIUS = [
         { id: 1, x: 16, y: 54 },
         { id: 2, x: 34, y: 42 },
@@ -68,37 +69,36 @@
         [3, 8], [8, 9], [9, 10], [9, 11], [11, 14], [10, 12], [12, 13]
     ];
 
-    // Estrellas de fondo: posiciones deterministas, diferentes tamaños y brillos.
+    // -------------------------------------------------------------------------
+    // Cielo base
+    // -------------------------------------------------------------------------
     const bgStars = [];
     let seed = 81211;
+
     function rnd() {
         seed = (seed * 1664525 + 1013904223) >>> 0;
         return seed / 4294967296;
     }
 
-    const starCount = prefersReducedMotion ? 120 : 210;
+    const starCount = prefersReducedMotion ? 120 : 235;
     for (let i = 0; i < starCount; i++) {
-        const edgeBias = rnd();
         const sizeRoll = rnd();
+        const large = sizeRoll > 0.79;
         bgStars.push({
             x: rnd(),
             y: rnd(),
-            radius: sizeRoll < 0.72 ? 0.45 + rnd() * 0.65 : 1.1 + rnd() * 1.55,
-            alpha: 0.18 + rnd() * 0.68,
-            twinkle: 0.55 + rnd() * 1.8,
+            radius: large ? 1.15 + rnd() * 1.65 : 0.42 + rnd() * 0.72,
+            alpha: large ? 0.38 + rnd() * 0.46 : 0.16 + rnd() * 0.58,
+            twinkle: 0.45 + rnd() * 1.7,
             phase: rnd() * Math.PI * 2,
-            tint: 0.72 + rnd() * 0.28,
-            drift: (rnd() - 0.5) * (edgeBias < 0.65 ? 0.012 : 0.028)
+            crisp: large,
+            depth: 0.35 + rnd() * 0.8
         });
     }
 
     const shooting = [];
     function makeShootingStar(delay, x, y, angle, speed, length, alpha) {
-        shooting.push({
-            delay,
-            x, y, angle, speed, length, alpha,
-            life: 0
-        });
+        shooting.push({ delay, x, y, angle, speed, length, alpha });
     }
 
     makeShootingStar(6.4, 0.08, 0.22, 0.44, 0.96, 0.25, 0.95);
@@ -113,6 +113,7 @@
     let width = 1;
     let height = 1;
     let dpr = 1;
+    let currentTime = 0;
 
     function resize() {
         width = window.innerWidth;
@@ -148,58 +149,107 @@
         return (now - startedAt) / 1000;
     }
 
+    // -------------------------------------------------------------------------
+    // Cámara: un desplazamiento suave y continuo, no un cambio brusco de escena.
+    // -------------------------------------------------------------------------
+    function getCamera(t) {
+        const p = clamp((t - CAMERA_MOVE_START) / 21.0);
+        const eased = easeInOut(p);
+
+        return {
+            x: Math.sin(eased * Math.PI * 0.5) * width * 0.085,
+            y: Math.cos(eased * Math.PI * 0.5) * height * 0.022,
+            zoom: 1 + eased * 0.018
+        };
+    }
+
+    // -------------------------------------------------------------------------
+    // Estrella nítida: núcleo pequeño + halo + cuatro puntas muy sutiles.
+    // Esta es la estética que comparten ahora cielo y constelación.
+    // -------------------------------------------------------------------------
+    function drawCrispStar(x, y, radius, alpha, t, emphasis = 1) {
+        const pulse = 0.88 + 0.12 * Math.sin(t * 1.65 + x * 0.009 + y * 0.007);
+        const a = clamp(alpha * pulse, 0, 1);
+        const r = Math.max(0.55, radius * (0.9 + emphasis * 0.14));
+
+        // Halo muy limpio, sin volver la estrella borrosa.
+        if (r > 1.0 || emphasis > 1.25) {
+            const glowR = r * (5.0 + emphasis * 1.8);
+            const glow = ctx.createRadialGradient(x, y, 0, x, y, glowR);
+            glow.addColorStop(0, 'rgba(220,232,255,' + (a * 0.20) + ')');
+            glow.addColorStop(0.16, 'rgba(210,225,255,' + (a * 0.09) + ')');
+            glow.addColorStop(1, 'rgba(180,205,255,0)');
+            ctx.fillStyle = glow;
+            ctx.beginPath();
+            ctx.arc(x, y, glowR, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Cuatro destellos finos para las estrellas más grandes.
+        if (r > 1.25 || emphasis > 1.25) {
+            const ray = r * (3.0 + emphasis * 1.35);
+            const rayAlpha = a * 0.34;
+            ctx.strokeStyle = 'rgba(235,242,255,' + rayAlpha + ')';
+            ctx.lineWidth = Math.max(0.45, Math.min(1.1, r * 0.35));
+            ctx.beginPath();
+            ctx.moveTo(x - ray, y);
+            ctx.lineTo(x + ray, y);
+            ctx.moveTo(x, y - ray);
+            ctx.lineTo(x, y + ray);
+            ctx.stroke();
+        }
+
+        // Núcleo duro y blanco.
+        ctx.fillStyle = 'rgba(255,255,255,' + clamp(a, 0, 1) + ')';
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
     function drawBackground(t) {
-        // Fondo azul-negro con un gradiente muy suave, sin óvalos ni formas artificiales.
+        // Cielo azul-negro continuo durante TODA la intro.
         const g = ctx.createLinearGradient(0, 0, width, height);
         g.addColorStop(0, '#02040b');
-        g.addColorStop(0.42, '#050814');
+        g.addColorStop(0.40, '#050915');
+        g.addColorStop(0.72, '#030612');
         g.addColorStop(1, '#010208');
         ctx.fillStyle = g;
         ctx.fillRect(0, 0, width, height);
 
-        // Bruma casi imperceptible para evitar un negro completamente plano.
-        const haze = ctx.createRadialGradient(width * 0.25, height * 0.30, 0, width * 0.25, height * 0.30, Math.min(width, height) * 0.72);
-        haze.addColorStop(0, 'rgba(92,112,170,0.055)');
-        haze.addColorStop(0.52, 'rgba(70,80,125,0.025)');
+        // Bruma mínima, solo para dar profundidad.
+        const haze = ctx.createRadialGradient(
+            width * 0.27, height * 0.30, 0,
+            width * 0.27, height * 0.30, Math.min(width, height) * 0.78
+        );
+        haze.addColorStop(0, 'rgba(105,125,185,0.050)');
+        haze.addColorStop(0.52, 'rgba(74,88,145,0.020)');
         haze.addColorStop(1, 'rgba(0,0,0,0)');
         ctx.fillStyle = haze;
         ctx.fillRect(0, 0, width, height);
 
-        const move = clamp((t - CAMERA_MOVE_START) / 20, 0, 1);
-        const panX = Math.sin(easeInOut(move) * Math.PI * 0.5) * width * 0.055;
-        const panY = Math.cos(easeInOut(move) * Math.PI * 0.5) * height * 0.025;
+        const camera = getCamera(t);
 
-        bgStars.forEach((s, i) => {
-            let sx = s.x * width + panX * (0.25 + s.drift * 4);
-            let sy = s.y * height + panY * (0.25 + s.drift * 4);
+        bgStars.forEach((s) => {
+            // Los planos con más profundidad se mueven apenas diferente para crear parallax.
+            let sx = s.x * width + camera.x * s.depth;
+            let sy = s.y * height + camera.y * s.depth;
             sx = ((sx % width) + width) % width;
             sy = ((sy % height) + height) % height;
 
             const pulse = 0.74 + 0.26 * Math.sin(t * s.twinkle + s.phase);
-            const a = clamp(s.alpha * pulse, 0.06, 0.96);
-            const r = s.radius;
-            const warm = s.tint;
-
-            ctx.beginPath();
-            ctx.fillStyle = 'rgba(' + Math.floor(235 + 20 * warm) + ',' + Math.floor(238 + 15 * warm) + ',255,' + a + ')';
-            ctx.arc(sx, sy, r, 0, Math.PI * 2);
-            ctx.fill();
-
-            if (r > 1.2 && a > 0.45) {
-                const glow = ctx.createRadialGradient(sx, sy, 0, sx, sy, r * 4.5);
-                glow.addColorStop(0, 'rgba(225,235,255,' + (a * 0.22) + ')');
-                glow.addColorStop(1, 'rgba(225,235,255,0)');
-                ctx.fillStyle = glow;
-                ctx.beginPath();
-                ctx.arc(sx, sy, r * 4.5, 0, Math.PI * 2);
-                ctx.fill();
-            }
+            const alpha = clamp(s.alpha * pulse, 0.05, 0.98);
+            drawCrispStar(sx, sy, s.radius, alpha, t, s.crisp ? 1.1 : 0.8);
         });
 
+        // Estrellas fugaces, siempre sobre el mismo cielo.
         shooting.forEach((s) => {
             const local = t - s.delay;
             if (local < 0 || local > 1.15) return;
-            const p = local < 0.18 ? easeOut(local / 0.18) : 1 - clamp((local - 0.18) / 0.97);
+
+            const p = local < 0.18
+                ? easeOut(local / 0.18)
+                : 1 - clamp((local - 0.18) / 0.97);
+
             const x = s.x * width + Math.cos(s.angle) * local * width * s.speed;
             const y = s.y * height + Math.sin(s.angle) * local * height * s.speed;
             const len = Math.min(width, height) * s.length * clamp(p + 0.2, 0.25, 1);
@@ -208,96 +258,116 @@
 
             const grad = ctx.createLinearGradient(tx, ty, x, y);
             grad.addColorStop(0, 'rgba(255,255,255,0)');
-            grad.addColorStop(0.72, 'rgba(228,238,255,' + (s.alpha * p * 0.35) + ')');
+            grad.addColorStop(0.70, 'rgba(228,238,255,' + (s.alpha * p * 0.34) + ')');
             grad.addColorStop(1, 'rgba(255,255,255,' + (s.alpha * p) + ')');
             ctx.strokeStyle = grad;
-            ctx.lineWidth = Math.max(1, Math.min(2.3, 1.15 + p));
+            ctx.lineWidth = Math.max(0.9, Math.min(2.1, 1.05 + p * 0.9));
             ctx.beginPath();
             ctx.moveTo(tx, ty);
             ctx.lineTo(x, y);
             ctx.stroke();
+
+            // Punto luminoso de la cabeza de la fugaz.
+            drawCrispStar(x, y, 1.25 + p * 0.9, s.alpha * p * 0.95, t, 1.35);
         });
     }
 
-    function constellationPoint(star) {
-        // El nacimiento queda hacia la zona derecha del cielo que la cámara termina mirando.
-        const drift = clamp((currentTime - CAMERA_MOVE_START) / 20, 0, 1);
-        const panX = Math.sin(easeInOut(drift) * Math.PI * 0.5) * width * 0.055;
-        const panY = Math.cos(easeInOut(drift) * Math.PI * 0.5) * height * 0.025;
+    function constellationPoint(star, t) {
+        const camera = getCamera(t);
         return {
-            x: star.x / 100 * width + panX,
-            y: star.y / 100 * height + panY
+            x: star.x / 100 * width + camera.x,
+            y: star.y / 100 * height + camera.y
         };
     }
 
-    let currentTime = 0;
-
+    // -------------------------------------------------------------------------
+    // Aparición de Acuario.
+    // Primero las estrellas se confunden con el cielo; luego se encienden.
+    // Después las líneas se escriben una por una.
+    // -------------------------------------------------------------------------
     function drawConstellation(t) {
         if (t < CONSTELLATION_START) return;
 
-        const progress = easeOut((t - CONSTELLATION_START) / (CONSTELLATION_FULL - CONSTELLATION_START));
-        const visibleCount = Math.min(AQUARIUS.length, Math.floor(progress * (AQUARIUS.length + 1)));
+        const progress = easeOut(
+            (t - CONSTELLATION_START) / (CONSTELLATION_FULL - CONSTELLATION_START)
+        );
+
         const revealT = progress * AQUARIUS.length;
 
-        // Primero se revelan los puntos, después comienzan a conectarse.
         AQUARIUS.forEach((star, index) => {
+            // Entrada escalonada: no aparecen todas al mismo tiempo.
             const local = clamp(revealT - index);
             if (local <= 0) return;
+
             const p = easeOut(local);
-            const pos = constellationPoint(star);
-            const baseR = 1.8 + (index % 3) * 0.5;
-            const radius = baseR + p * 1.25;
-            const glowR = radius * (5 + p * 4);
+            const pos = constellationPoint(star, t);
 
-            const glow = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, glowR);
-            glow.addColorStop(0, 'rgba(255,255,255,' + (0.80 * p) + ')');
-            glow.addColorStop(0.18, 'rgba(215,228,255,' + (0.26 * p) + ')');
-            glow.addColorStop(1, 'rgba(160,190,255,0)');
-            ctx.fillStyle = glow;
-            ctx.beginPath();
-            ctx.arc(pos.x, pos.y, glowR, 0, Math.PI * 2);
-            ctx.fill();
+            // Halo exactamente del mismo estilo que una estrella brillante del cielo.
+            const emphasis = 1.55;
+            drawCrispStar(
+                pos.x,
+                pos.y,
+                2.0 + p * 1.05,
+                0.30 + 0.70 * p,
+                t,
+                emphasis
+            );
 
-            ctx.fillStyle = 'rgba(255,255,255,' + (0.28 + 0.72 * p) + ')';
-            ctx.beginPath();
-            ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
-            ctx.fill();
+            // Destello inicial corto, como si la estrella acabara de descubrirse.
+            if (p < 1) {
+                const flash = Math.sin(p * Math.PI);
+                const flashR = 7 + flash * 8;
+                const flashGrad = ctx.createRadialGradient(
+                    pos.x, pos.y, 0,
+                    pos.x, pos.y, flashR
+                );
+                flashGrad.addColorStop(0, 'rgba(255,255,255,' + (flash * 0.34) + ')');
+                flashGrad.addColorStop(0.28, 'rgba(215,230,255,' + (flash * 0.10) + ')');
+                flashGrad.addColorStop(1, 'rgba(170,195,255,0)');
+                ctx.fillStyle = flashGrad;
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, flashR, 0, Math.PI * 2);
+                ctx.fill();
+            }
         });
 
-        // Las líneas aparecen como si la figura se estuviera revelando desde el cielo.
-        const lineProgress = clamp((progress - 0.48) / 0.52);
+        // Las líneas empiezan cuando ya hay varias estrellas visibles.
+        const lineProgress = clamp((progress - 0.45) / 0.55);
+
         LINES.forEach((line, index) => {
             const local = clamp(lineProgress * LINES.length - index);
             if (local <= 0) return;
+
             const p = easeOut(local);
             const a = AQUARIUS.find(s => s.id === line[0]);
             const b = AQUARIUS.find(s => s.id === line[1]);
             if (!a || !b) return;
-            const pa = constellationPoint(a);
-            const pb = constellationPoint(b);
+
+            const pa = constellationPoint(a, t);
+            const pb = constellationPoint(b, t);
             const ex = pa.x + (pb.x - pa.x) * p;
             const ey = pa.y + (pb.y - pa.y) * p;
 
-            ctx.strokeStyle = 'rgba(195,210,240,' + (0.14 + 0.30 * p) + ')';
-            ctx.lineWidth = 1;
+            // Línea nítida, fina y discreta.
+            ctx.strokeStyle = 'rgba(205,218,244,' + (0.13 + 0.34 * p) + ')';
+            ctx.lineWidth = 0.9;
             ctx.beginPath();
             ctx.moveTo(pa.x, pa.y);
             ctx.lineTo(ex, ey);
             ctx.stroke();
+
+            // Pequeño punto de luz viajando por la línea mientras se dibuja.
+            if (p < 1) {
+                drawCrispStar(ex, ey, 1.15, 0.72, t, 1.12);
+            }
         });
 
-        // Pequeña respiración final para que no parezca un dibujo estático.
+        // Una respiración final muy suave para que el cielo siga vivo.
         if (progress > 0.82) {
-            const pulse = 0.05 + Math.sin(t * 2.5) * 0.02;
-            AQUARIUS.forEach((star, i) => {
-                const pos = constellationPoint(star);
-                const p = clamp((progress * AQUARIUS.length) - i);
-                if (p < 1) return;
-                ctx.strokeStyle = 'rgba(224,235,255,' + pulse + ')';
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.arc(pos.x, pos.y, 4 + Math.sin(t * 1.8 + i) * 0.7, 0, Math.PI * 2);
-                ctx.stroke();
+            const pulse = 0.82 + 0.18 * Math.sin(t * 1.6);
+            AQUARIUS.forEach((star) => {
+                const pos = constellationPoint(star, t);
+                drawCrispStar(pos.x, pos.y, 2.0, 0.50 * pulse, t, 1.18);
             });
         }
     }
@@ -311,7 +381,9 @@
         drawBackground(t);
         drawConstellation(t);
 
-        const fade = t > FADE_TO_REAL ? clamp((t - FADE_TO_REAL) / (TOTAL - FADE_TO_REAL)) : 0;
+        const fade = t > FADE_TO_REAL
+            ? clamp((t - FADE_TO_REAL) / (TOTAL - FADE_TO_REAL))
+            : 0;
         canvas.style.opacity = String(1 - fade);
 
         if (t >= TOTAL) {
@@ -328,13 +400,18 @@
 
     function begin() {
         if (running) return;
+
         running = true;
         startedAt = performance.now();
+        currentTime = 0;
+
         canvas.style.display = 'block';
         canvas.style.opacity = '1';
-        // El renderer antiguo queda completamente tapado durante esta intro.
+
+        // La escena antigua queda tapada: este canvas es ahora el único cielo visible.
         baseCanvas.style.visibility = 'hidden';
         if (nebula) nebula.style.visibility = 'hidden';
+
         resize();
         drawBackground(0);
         cancelAnimationFrame(raf);
