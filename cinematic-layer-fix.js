@@ -66,8 +66,7 @@
         for (let i = 0; i < count; i++) {
             const q = rnd();
             const star = {
-                x: rnd(),
-                y: rnd(),
+                x: rnd(), y: rnd(),
                 r: q > .93 ? 1.05 + rnd() * 1.1 : q > .60 ? .55 + rnd() * .45 : .25 + rnd() * .22,
                 a: q > .93 ? .60 + rnd() * .20 : q > .60 ? .24 + rnd() * .18 : .09 + rnd() * .10,
                 tw: q > .88 ? .16 + rnd() * .30 : 0,
@@ -75,8 +74,7 @@
                 depth: .3 + rnd() * .70,
                 cross: q > .975
             };
-            if (star.tw) stars.push(star);
-            else staticStars.push(star);
+            if (star.tw) stars.push(star); else staticStars.push(star);
         }
     }
 
@@ -127,7 +125,6 @@
             bctx.fillRect(x | 0, y | 0, s, s);
         }
 
-        // Las estrellas que nunca titilan se rasterizan una sola vez.
         for (let i = 0; i < staticStars.length; i++) {
             const s = staticStars[i];
             const x = s.x * w;
@@ -143,7 +140,6 @@
         let y = s.y * h + cameraY * s.depth;
         x = x < 0 ? x + w : (x >= w ? x - w : x);
         y = y < 0 ? y + h : (y >= h ? y - h : y);
-
         const pulse = .88 + .12 * Math.sin(t * s.tw + s.phase);
         const r = Math.max(.35, s.r * zoom * pulse);
         const a = clamp(s.a * pulse, .035, .92);
@@ -156,14 +152,12 @@
         const start = slot === 0 ? 1.0 : 4.7;
         const local = (t - start) % cycle;
         if (local <= 0 || local >= 1.25) return;
-
         const p = ease(local / 1.25);
         const fromRight = slot === 0;
         const x = (fromRight ? .84 : .17) * w + (fromRight ? -1 : 1) * p * w * .18;
         const y = (fromRight ? .16 : .22) * h + p * h * .13;
         const tx = x + (fromRight ? .06 : -.06) * w;
         const ty = y - .04 * h;
-
         ctx.globalAlpha = Math.sin((local / 1.25) * Math.PI) * .40;
         ctx.strokeStyle = 'rgba(245,248,252,.72)';
         ctx.lineWidth = .6;
@@ -175,24 +169,20 @@
 
     function frame(now) {
         if (!started) return;
-        // 30 fps: el paneo sigue siendo suave y baja bastante el coste sostenido.
         if (lastFrame && now - lastFrame < 33) {
             raf = requestAnimationFrame(frame);
             return;
         }
         lastFrame = now;
-
         const t = (now - startTime) / 1000;
         const settle = 1 - Math.exp(-t / 7.5);
         cameraX = -w * .07 * settle + Math.sin(t * .10) * w * .007;
         cameraY = Math.sin(t * .06) * h * .008;
         zoom = 1 + .020 * settle;
-
         ctx.drawImage(backdrop, 0, 0);
         for (let i = 0; i < stars.length; i++) drawTwinkleStar(stars[i], t);
         drawMeteor(t, 0);
         drawMeteor(t, 1);
-
         raf = requestAnimationFrame(frame);
     }
 
@@ -201,25 +191,24 @@
         started = true;
         startTime = performance.now();
         lastFrame = 0;
-
-        // Detiene el cielo anterior: estaba oculto, pero seguía renderizando en segundo plano.
-        if (typeof window.__stopInitialSpaceEnhancement === 'function') {
-            window.__stopInitialSpaceEnhancement();
-        }
-
+        if (typeof window.__stopInitialSpaceEnhancement === 'function') window.__stopInitialSpaceEnhancement();
         resize();
         canvas.style.display = 'block';
-
         const old = document.getElementById('cinematic-sky');
         if (old) old.style.visibility = 'hidden';
         const base = document.getElementById('starfield');
         if (base) base.style.visibility = 'hidden';
         const nebula = document.getElementById('nebula');
         if (nebula) nebula.style.visibility = 'hidden';
-
         cancelAnimationFrame(raf);
         frame(startTime);
     }
+
+    window.__stopCinematicLayerFix = function () {
+        started = false;
+        cancelAnimationFrame(raf);
+        raf = 0;
+    };
 
     button.addEventListener('click', begin);
     window.addEventListener('resize', resize, { passive: true });
