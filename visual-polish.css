@@ -1,198 +1,78 @@
-/* ============================================================================
- * Acabado visual — cielo + mensajes
- * ========================================================================== */
-
+/* Cielo y acabado visual unificados */
 #stars-container { pointer-events: none; }
-
-.star-node {
-    pointer-events: auto;
-    width: 48px;
-    height: 48px;
-}
-
+.star-node { pointer-events: auto; width: 48px; height: 48px; }
 .star-node .star-point {
-    width: 10px;
-    height: 10px;
-    border-radius: 0;
-    background: #fff;
+    width: 10px; height: 10px; border-radius: 0; background: #fff;
     clip-path: polygon(50% 0%,61% 38%,100% 50%,61% 62%,50% 100%,39% 62%,0% 50%,39% 38%);
-    filter: drop-shadow(0 0 3px rgba(255,255,255,.95)) drop-shadow(0 0 9px rgba(190,205,255,.72));
-    box-shadow: none;
-    transform-origin: center;
+    filter: drop-shadow(0 0 2px rgba(255,255,255,.9)) drop-shadow(0 0 6px rgba(190,205,255,.48));
+    box-shadow: none; transform-origin: center;
 }
-
 .star-node.active .star-point {
-    width: 16px;
-    height: 16px;
-    filter: drop-shadow(0 0 4px #fff) drop-shadow(0 0 12px rgba(210,220,255,.9)) drop-shadow(0 0 24px rgba(167,139,250,.52));
+    width: 15px; height: 15px;
+    filter: drop-shadow(0 0 3px #fff) drop-shadow(0 0 8px rgba(210,220,255,.68));
 }
-
 .star-node.discovered .star-point {
-    width: 12px;
-    height: 12px;
-    filter: drop-shadow(0 0 4px #fff) drop-shadow(0 0 11px rgba(200,210,255,.85)) drop-shadow(0 0 20px rgba(167,139,250,.50));
+    width: 12px; height: 12px;
+    filter: drop-shadow(0 0 3px #fff) drop-shadow(0 0 7px rgba(200,210,255,.62));
 }
-
 .star-node.active .star-point::before,
 .star-node.active .star-point::after,
 .star-node.discovered .star-point::before,
-.star-node.discovered .star-point::after { display: none; }
-
+.star-node.discovered .star-point::after { display:none; }
 .star-node.active:hover,
 .star-node.active:active,
 .star-node.discovered:hover,
-.star-node.discovered:active { transform: translate(-50%, -50%) scale(1.08); }
+.star-node.discovered:active { transform:translate(-50%,-50%) scale(1.06); }
 
 #constellation-lines .const-line {
-    stroke: rgba(222,231,248,.68);
-    stroke-width: 1.35;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    stroke-dasharray: none;
-    stroke-opacity: 0;
-    pointer-events: none;
-    animation: none;
-    filter: drop-shadow(0 0 3px rgba(180,205,255,.24));
-    transition: stroke-opacity .7s cubic-bezier(.22,1,.36,1), stroke-width .7s cubic-bezier(.22,1,.36,1), filter .7s ease;
+    stroke: rgba(231,238,250,.62); stroke-width:1.3; stroke-linecap:round; stroke-linejoin:round;
+    stroke-dasharray:none; stroke-opacity:0; pointer-events:none; animation:none;
+    filter:none;
+    transition:stroke-opacity .6s cubic-bezier(.22,1,.36,1),stroke-width .6s cubic-bezier(.22,1,.36,1);
 }
+#constellation-lines .const-line.active { stroke-opacity:.96; stroke:rgba(248,250,255,.9); stroke-width:1.65; filter:drop-shadow(0 0 3px rgba(205,220,250,.42)); }
 
-#constellation-lines .const-line.active {
-    stroke-opacity: 1;
-    stroke: rgba(244,247,255,.94);
-    stroke-width: 1.8;
-    filter: drop-shadow(0 0 3px rgba(220,232,255,.68)) drop-shadow(0 0 9px rgba(167,139,250,.30));
-}
-
-/* --------------------------------------------------------------------------
-   Mensajes: ya no parecen una tarjeta de aplicación; parecen una ventana
-   translúcida flotando dentro del cielo.
-   -------------------------------------------------------------------------- */
+/* Mensaje integrado al cielo, sin tarjeta pesada */
 #modal-overlay {
-    background: radial-gradient(circle at 50% 46%, rgba(150,170,220,.045), transparent 36%), rgba(1,3,10,.36);
-    backdrop-filter: blur(2px);
-    -webkit-backdrop-filter: blur(2px);
-    transition: opacity .7s cubic-bezier(.22,1,.36,1), visibility .7s ease;
+    background:rgba(5,12,23,.20);
+    backdrop-filter:blur(1.5px); -webkit-backdrop-filter:blur(1.5px);
+    transition:opacity .6s ease,visibility .6s ease;
 }
-
 #modal {
-    max-width: 500px;
-    max-height: 82dvh;
-    background: linear-gradient(155deg, rgba(10,16,30,.66), rgba(6,10,20,.40));
-    border: 1px solid rgba(225,234,255,.17);
-    border-radius: 12px;
-    box-shadow: 0 30px 90px rgba(0,0,0,.46), 0 0 50px rgba(145,170,225,.07), inset 0 1px 0 rgba(255,255,255,.08);
-    padding: 34px 30px 27px;
-    overflow: hidden;
-    transform: translateY(12px) scale(.99);
-    transition: transform .75s cubic-bezier(.22,1,.36,1);
+    max-width:500px; max-height:82dvh;
+    background:linear-gradient(155deg,rgba(10,22,38,.44),rgba(7,16,28,.24));
+    border:1px solid rgba(225,234,255,.10); border-radius:9px;
+    box-shadow:0 24px 70px rgba(0,0,0,.28),0 0 34px rgba(145,170,225,.05),inset 0 1px 0 rgba(255,255,255,.04);
+    padding:32px 28px 25px; overflow:hidden;
+    transform:translateY(10px) scale(.995);
+    transition:transform .65s cubic-bezier(.22,1,.36,1);
 }
+#modal::before { content:''; position:absolute; inset:0; background:radial-gradient(circle at 50% 0,rgba(235,242,255,.035),transparent 48%); pointer-events:none; }
+#modal::after { content:''; position:absolute; top:16px; left:50%; width:34px; height:1px; transform:translateX(-50%); background:linear-gradient(90deg,transparent,rgba(232,239,255,.28),transparent); }
+#modal-overlay.open #modal { transform:translateY(0) scale(1); }
+.modal-header { margin-bottom:20px; position:relative; z-index:1; }
+#modal-star-name { font-family:var(--font-serif); font-size:clamp(1.12rem,3.8vw,1.25rem); letter-spacing:.09em; color:rgba(242,246,255,.9); font-style:italic; font-weight:400; }
+#modal-star-count { display:block; margin-top:6px; font-size:.58rem; letter-spacing:.22em; color:rgba(218,227,250,.30); }
+#modal-content { min-height:100px; margin-bottom:21px; position:relative; z-index:1; }
+#modal-message { max-width:425px; font-family:var(--font-serif); font-size:clamp(1.1rem,4vw,1.27rem); line-height:1.78; color:rgba(251,252,255,.94); letter-spacing:.01em; text-shadow:0 2px 15px rgba(0,0,0,.34); }
+#modal-close { position:relative; z-index:1; min-height:38px; padding:8px 18px; border:0; border-top:1px solid rgba(223,231,249,.11); border-bottom:1px solid rgba(223,231,249,.06); border-radius:0; background:transparent; color:rgba(225,233,250,.56); font-family:var(--font-sans); font-size:.66rem; letter-spacing:.20em; cursor:pointer; box-shadow:none; }
+#modal-close:hover { color:#fff; border-top-color:rgba(235,242,255,.30); border-bottom-color:rgba(235,242,255,.12); background:transparent; box-shadow:none; transform:none; }
+#finale-overlay { background:radial-gradient(circle at 50% 50%,rgba(116,145,205,.025),transparent 46%); }
+#finale-message p { text-shadow:0 2px 16px rgba(0,0,0,.56),0 0 26px rgba(170,190,235,.08); }
+#finale-continue { border:0; border-top:1px solid rgba(216,226,248,.13); border-bottom:1px solid rgba(216,226,248,.06); border-radius:0; padding:8px 20px 9px; color:rgba(223,231,249,.54); }
+#finale-continue:hover { color:rgba(255,255,255,.92); border-color:rgba(235,241,255,.25); }
 
-#modal::before {
-    content: '';
-    position: absolute;
-    inset: -30% -10%;
-    background: radial-gradient(circle at 20% 25%, rgba(255,255,255,.04), transparent 25%), radial-gradient(circle at 80% 72%, rgba(170,192,240,.045), transparent 28%);
-    pointer-events: none;
+/* Un solo cielo base para inicio, interacción y final */
+html, body { background:#071526; }
+#nebula {
+    background:linear-gradient(135deg,#0a1b30 0%,#102a45 43%,#0a1c32 72%,#071424 100%) !important;
+    opacity:1 !important; mix-blend-mode:normal;
 }
-
-#modal::after {
-    content: '';
-    position: absolute;
-    top: 18px;
-    left: 50%;
-    width: 42px;
-    height: 1px;
-    transform: translateX(-50%);
-    background: linear-gradient(90deg, transparent, rgba(232,239,255,.42), transparent);
+#nebula::before { display:none; }
+#nebula::after {
+    background:linear-gradient(120deg,rgba(120,158,205,.035),transparent 38%,rgba(160,181,220,.045) 58%,transparent 85%);
 }
-
-#modal-overlay.open #modal { transform: translateY(0) scale(1); }
-
-.modal-header {
-    margin-bottom: 23px;
-    position: relative;
-    z-index: 1;
-}
-
-#modal-star-name {
-    font-family: var(--font-serif);
-    font-size: clamp(1.14rem,3.8vw,1.28rem);
-    letter-spacing: .10em;
-    color: rgba(239,244,255,.93);
-    font-style: italic;
-    font-weight: 400;
-    text-shadow: 0 0 18px rgba(195,210,255,.14);
-}
-
-#modal-star-count {
-    display: block;
-    margin-top: 7px;
-    font-size: .61rem;
-    letter-spacing: .24em;
-    color: rgba(218,227,250,.34);
-}
-
-#modal-content {
-    min-height: 104px;
-    margin-bottom: 24px;
-    position: relative;
-    z-index: 1;
-}
-
-#modal-message {
-    max-width: 425px;
-    font-family: var(--font-serif);
-    font-size: clamp(1.12rem,4vw,1.29rem);
-    line-height: 1.82;
-    color: rgba(251,252,255,.95);
-    letter-spacing: .01em;
-    text-shadow: 0 2px 18px rgba(0,0,0,.50);
-}
-
-#modal-close {
-    position: relative;
-    z-index: 1;
-    min-height: 40px;
-    padding: 9px 20px;
-    border: 0;
-    border-top: 1px solid rgba(223,231,249,.14);
-    border-bottom: 1px solid rgba(223,231,249,.07);
-    border-radius: 0;
-    background: transparent;
-    color: rgba(225,233,250,.62);
-    font-family: var(--font-sans);
-    font-size: .68rem;
-    letter-spacing: .22em;
-    cursor: pointer;
-    box-shadow: none;
-    transition: color .35s ease, border-color .35s ease, letter-spacing .35s ease;
-}
-
-#modal-close:hover {
-    color: #fff;
-    border-top-color: rgba(235,242,255,.40);
-    border-bottom-color: rgba(235,242,255,.16);
-    letter-spacing: .27em;
-    background: transparent;
-    box-shadow: none;
-    transform: none;
-}
-
-#finale-overlay { background: radial-gradient(circle at 50% 50%, rgba(100,125,190,.025), transparent 44%); }
-
-#finale-message p { text-shadow: 0 2px 18px rgba(0,0,0,.72), 0 0 34px rgba(170,190,235,.10); }
-
-#finale-continue {
-    border: 0;
-    border-top: 1px solid rgba(216,226,248,.16);
-    border-bottom: 1px solid rgba(216,226,248,.07);
-    border-radius: 0;
-    padding: 9px 22px 10px;
-    color: rgba(223,231,249,.58);
-}
-
-#finale-continue:hover { color: rgba(255,255,255,.92); border-color: rgba(235,241,255,.30); }
-
-@media (max-width: 640px) {
-    #modal { max-width: calc(100vw - 28px); padding: 30px 21px 24px; border-radius: 11px; }
-}
+body::after { background:radial-gradient(ellipse at 50% 42%,transparent 60%,rgba(0,5,12,.20) 100%); }
+#final-sky-polish { background:transparent; }
+#cinematic-sky { opacity:1; }
+@media (max-width:640px) { #modal { max-width:calc(100vw - 28px); padding:28px 20px 22px; border-radius:8px; } }
