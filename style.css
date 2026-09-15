@@ -193,7 +193,11 @@ body.constellation-complete #celestial-map {
     stroke-width: 1.5;
     stroke-linecap: round;
     stroke-dasharray: 4 4;
-    transition: stroke 1.2s ease, stroke-width 0.8s ease, filter 0.8s ease, stroke-opacity 2.4s ease;
+    /* Las líneas nacen únicamente al descubrir sus dos extremos: nada de
+       trazos punteados anticipando la figura completa. Look más limpio. */
+    stroke-opacity: 0;
+    pointer-events: none;
+    transition: stroke 1.2s ease, stroke-width 0.8s ease, filter 0.8s ease, stroke-opacity 1.2s ease;
     animation: constellationFlow 3.2s linear infinite;
 }
 
@@ -208,6 +212,8 @@ body.constellation-complete #celestial-map {
     stroke: var(--line-active-color);
     stroke-width: 2.4;
     stroke-dasharray: none;
+    stroke-opacity: 1;
+    pointer-events: none;
     filter: drop-shadow(0 0 6px rgba(196, 181, 253, 0.95)) drop-shadow(0 0 14px rgba(167, 139, 250, 0.6));
     animation: lineGlow 3s ease-in-out infinite alternate;
 }
@@ -560,11 +566,9 @@ body.constellation-complete #celestial-map {
 }
 
 /* Mientras dura la travesía (aprox. hasta el nacimiento), Acuario permanece
-   latente: ni líneas ni estrellas anticipan la figura antes de que nazca. */
-body.cinema-lock #constellation-lines .const-line {
-    stroke-opacity: 0;
-}
-
+   latente: las estrellas no anticipan la figura antes de que nazca. Las
+   líneas ya parten ocultas por defecto (.const-line), así que no hace falta
+   una regla aparte aquí. */
 body.cinema-lock .star-node {
     opacity: 0;
     visibility: hidden;
