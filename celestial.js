@@ -315,24 +315,56 @@
     const LINE_COLOR = 'rgba(215, 230, 255, 0.50)';
     const STAR_COLOR = 'rgba(255, 255, 255, 0.92)';
 
+    // Traza una curva suave a través de una polilínea (en vez de segmentos
+    // rectos): técnica barata y clásica de "curva por los puntos medios" con
+    // quadraticCurveTo, sin necesitar librerías de splines.
+    function strokeSmoothPolyline(ctx, pts) {
+        const n = pts.length;
+        if (n < 2) return;
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, pts[0].y);
+        if (n === 2) {
+            ctx.lineTo(pts[1].x, pts[1].y);
+        } else {
+            for (let i = 1; i < n - 1; i++) {
+                const midX = (pts[i].x + pts[i + 1].x) / 2;
+                const midY = (pts[i].y + pts[i + 1].y) / 2;
+                ctx.quadraticCurveTo(pts[i].x, pts[i].y, midX, midY);
+            }
+            ctx.quadraticCurveTo(pts[n - 2].x, pts[n - 2].y, pts[n - 1].x, pts[n - 1].y);
+        }
+        ctx.stroke();
+    }
+
+    // Estrella real (núcleo + rayos de difracción en cruz) en vez de un
+    // punto circular liso: barato (un arco relleno + como mucho una cruz de
+    // 2 trazos), nada de gradientes recreados por estrella y por frame.
+    function drawStarSparkle(ctx, x, y, r, rayLen) {
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+        if (rayLen > 1.1) {
+            ctx.beginPath();
+            ctx.moveTo(x - rayLen, y);
+            ctx.lineTo(x + rayLen, y);
+            ctx.moveTo(x, y - rayLen);
+            ctx.lineTo(x, y + rayLen);
+            ctx.stroke();
+        }
+    }
+
     function drawConstellation(entry, ctx) {
-        // Trazos vectoriales de las conexiones reales (Stellarium).
+        // Trazos vectoriales de las conexiones reales (Stellarium), como
+        // curvas suaves en vez de rectas: un cielo más fluido y orgánico.
         ctx.save();
         ctx.strokeStyle = LINE_COLOR;
-        ctx.lineWidth = 1.25;
+        ctx.lineWidth = 1.15;
         ctx.lineJoin = 'round';
         ctx.lineCap = 'round';
-        ctx.shadowColor = 'rgba(150, 185, 255, 0.45)';
-        ctx.shadowBlur = 6;
+        ctx.shadowColor = 'rgba(150, 185, 255, 0.4)';
+        ctx.shadowBlur = 5;
 
-        entry.lines.forEach((pts) => {
-            ctx.beginPath();
-            pts.forEach((p, i) => {
-                if (i === 0) ctx.moveTo(p.x, p.y);
-                else ctx.lineTo(p.x, p.y);
-            });
-            ctx.stroke();
-        });
+        entry.lines.forEach((pts) => strokeSmoothPolyline(ctx, pts));
         ctx.restore();
 
         // Estrellas reales de la figura. Si la viajera pasa cerca, ESA estrella
@@ -340,21 +372,25 @@
         // posición ni altera su geometría).
         ctx.save();
         ctx.fillStyle = STAR_COLOR;
+        ctx.strokeStyle = STAR_COLOR;
+        ctx.lineWidth = 0.8;
         ctx.shadowColor = 'rgba(210, 230, 255, 0.85)';
-        ctx.shadowBlur = 8;
+        ctx.shadowBlur = 6;
 
         entry.stars.forEach((p, idx) => {
             const glow = sparkleGlow(entry.id, idx);
+            const r = 1.3 + 0.9 * glow;
             if (glow > 0) {
-                ctx.fillStyle = 'rgba(255, 255, 255, ' + (0.92 + 0.12 * glow) + ')';
-                ctx.shadowBlur = 8 + 14 * glow;
+                const c = 'rgba(255, 255, 255, ' + (0.92 + 0.12 * glow) + ')';
+                ctx.fillStyle = c;
+                ctx.strokeStyle = c;
+                ctx.shadowBlur = 6 + 12 * glow;
             } else {
-                ctx.shadowBlur = 8;
+                ctx.fillStyle = STAR_COLOR;
+                ctx.strokeStyle = STAR_COLOR;
+                ctx.shadowBlur = 6;
             }
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, 1.8 + 1.2 * glow, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = STAR_COLOR;
+            drawStarSparkle(ctx, p.x, p.y, r, r * 2.6 * (0.4 + glow));
         });
         ctx.restore();
     }
@@ -816,12 +852,22 @@
         }
     }
 
+    // El canvas del zodíaco está invisible (opacity: 0) durante toda la
+    // experiencia salvo el final (body.constellation-complete). Antes de
+    // esta puerta, animate() hacía el trabajo COMPLETO cada frame —11
+    // constelaciones, sombras, proyecciones— aunque nadie pudiera verlo.
+    // Comprobar una clase del body es una operación barata; evita ese
+    // trabajo desperdiciado durante el ~95% del tiempo que no se ve.
+    function isZodiacVisible() {
+        return document.body.classList.contains('constellation-complete');
+    }
+
     function animate() {
         const ctx2 = sky.ctx;
         const canvas = sky.canvas;
 
         try {
-            if (ctx2 && canvas && sky.w) {
+            if (ctx2 && canvas && sky.w && isZodiacVisible()) {
                 const w = sky.w;
                 const h = sky.h;
                 const dpr = sky.dpr || 1;
@@ -830,7 +876,9 @@
                 ctx2.setTransform(dpr, 0, 0, dpr, 0, 0);
                 ctx2.clearRect(0, 0, canvas.width, canvas.height);
 
-                // Único movimiento orbital: avanza el ángulo global.
+                // Único movimiento orbital: avanza el ángulo global. Solo
+                // avanza mientras es visible: no hay diferencia perceptible
+                // (nadie lo veía) y evita cálculos previos innecesarios.
                 globalAngle += ORBIT_SPEED;
 
                 // Las 11 constelaciones en su anillo circular (traslación pura).
