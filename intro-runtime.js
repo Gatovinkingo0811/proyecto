@@ -11,15 +11,12 @@
     var nativeCancelRAF = window.cancelAnimationFrame.bind(window);
     var nativeSetTimeout = window.setTimeout.bind(window);
     var nativeClearTimeout = window.clearTimeout.bind(window);
-    var timers = [];
     var cinemaRunning = false;
 
-    // El canvas original se conserva porque script.js lo necesita como parte de
-    // su reloj/cinemática, pero durante la intro no debe rasterizar cientos de
-    // primitivas ni gradientes. Solo anulamos sus operaciones gráficas.
+    // El canvas original se conserva porque script.js lo usa como reloj de la
+    // cinemática. Durante la intro no debe rasterizar sus cientos de operaciones.
     var originalGetContext = HTMLCanvasElement.prototype.getContext;
     var originalContexts = new WeakSet();
-    var noopGradient = { addColorStop: function () {} };
     var drawingMethods = [
         'clearRect','fillRect','strokeRect','beginPath','closePath','moveTo','lineTo',
         'quadraticCurveTo','bezierCurveTo','arc','arcTo','ellipse','rect','fill','stroke',
@@ -33,9 +30,9 @@
         drawingMethods.forEach(function (name) {
             if (typeof ctx[name] === 'function') ctx[name] = function () {};
         });
-        if (typeof ctx.createLinearGradient === 'function') ctx.createLinearGradient = function () { return noopGradient; };
-        if (typeof ctx.createRadialGradient === 'function') ctx.createRadialGradient = function () { return noopGradient; };
-        if (typeof ctx.createPattern === 'function') ctx.createPattern = function () { return null; };
+        // Los gradientes siguen siendo objetos reales para que fillStyle/strokeStyle
+        // sigan siendo válidos; simplemente nunca llegan a rasterizarse porque fill/stroke
+        // están anulados durante esta fase.
         return ctx;
     }
 
@@ -54,14 +51,12 @@
         return s.indexOf('updateCinema(now)') !== -1 && s.indexOf('ExperienceMusic.flush') !== -1;
     }
 
-    // El starfield original solo necesita avanzar el reloj de la cinemática.
-    // 30 actualizaciones por segundo son suficientes para ese reloj y evitan el
-    // coste de ejecutar el mismo ciclo a 60/120/144 Hz.
+    // El starfield original funciona como reloj de la partitura, no como renderer.
+    // Se actualiza a ~30 Hz solo mientras la cinemática está activa.
     window.requestAnimationFrame = function (fn) {
         if (isOriginalStarfieldLoop(fn)) {
             if (!cinemaRunning) return 0;
-            var id = nativeSetTimeout(function () { fn(performance.now()); }, 33);
-            return id;
+            return nativeSetTimeout(function () { fn(performance.now()); }, 33);
         }
         return nativeRAF(fn);
     };
@@ -128,11 +123,7 @@
         return layer;
     }
 
-    function schedule(fn, ms) {
-        var id = nativeSetTimeout(fn, ms);
-        timers.push(id);
-        return id;
-    }
+    function schedule(fn, ms) { return nativeSetTimeout(fn, ms); }
 
     function start() {
         if (started) return;
@@ -143,7 +134,7 @@
         var nebula = document.getElementById('nebula');
         if (nebula) nebula.style.visibility = 'hidden';
         var lite = makeStars();
-        requestAnimationFrame(function () { lite.classList.add('show'); });
+        nativeRAF(function () { lite.classList.add('show'); });
 
         schedule(function () {
             if (lite.parentNode) lite.parentNode.removeChild(lite);
