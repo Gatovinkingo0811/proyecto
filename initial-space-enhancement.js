@@ -1,7 +1,7 @@
 /*
- * Intro cinematográfica — cielo nocturno vivo -> giro de mirada -> Acuario.
- * El mismo cielo continúa detrás de toda la experiencia para evitar cualquier
- * cambio brusco cuando aparecen las 14 estrellas interactivas.
+ * Cielo continuo de toda la experiencia.
+ * No modifica la lógica de las 14 estrellas: solo proporciona el fondo vivo
+ * que las acompaña desde «Comenzar» hasta que empieza el final.
  */
 (function () {
     'use strict';
@@ -10,8 +10,9 @@
     canvas.id = 'cinematic-sky';
     canvas.setAttribute('aria-hidden', 'true');
     canvas.style.cssText = [
-        'position:fixed','inset:0','width:100%','height:100%',
-        'z-index:0','pointer-events:none','display:none','opacity:1','will-change:opacity'
+        'position:fixed', 'inset:0', 'width:100%', 'height:100%',
+        'z-index:1', 'pointer-events:none', 'display:none', 'opacity:1',
+        'will-change:opacity', 'transform:translateZ(0)'
     ].join(';');
     document.body.appendChild(canvas);
 
@@ -23,15 +24,14 @@
     const nebula = document.getElementById('nebula');
     if (!button || !baseCanvas) { canvas.remove(); return; }
 
-    const reduced = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    const reduced = !!(window.matchMedia &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
-    // La parte narrativa es breve; el cielo no desaparece después.
-    const ACTUAL_END = 19.0;
-    const RELEASE_TIME = 19.5;
-    const LOOK_START = 3.8;
-    const LOOK_END = 10.8;
-    const CONSTELLATION_START = 9.8;
-    const CONSTELLATION_END = 16.9;
+    // La mirada se mueve desde el cielo general hacia Acuario y allí se asienta.
+    const LOOK_START = 1.2;
+    const LOOK_END = 8.6;
+    const CONSTELLATION_START = 7.0;
+    const CONSTELLATION_END = 14.6;
 
     const AQUARIUS = [
         { id: 1, x: 16, y: 54 }, { id: 2, x: 34, y: 42 },
@@ -43,195 +43,194 @@
         { id: 13, x: 82, y: 89 }, { id: 14, x: 87, y: 42 }
     ];
 
-    const bgStars = [];
+    let width = 1;
+    let height = 1;
+    let dpr = 1;
+    let startedAt = 0;
+    let running = false;
+    let raf = 0;
     let seed = 81211;
+
     function rnd() {
         seed = (seed * 1664525 + 1013904223) >>> 0;
         return seed / 4294967296;
     }
 
-    const starCount = reduced ? 105 : 190;
-    for (let i = 0; i < starCount; i++) {
-        const roll = rnd();
-        const bright = roll > 0.86;
-        const medium = !bright && roll > 0.55;
+    const bgStars = [];
+    const shooting = [
+        { at: 3.6, x: .84, y: .18, angle: 2.55, speed: .135, length: .060, alpha: .62, life: 2.45 },
+        { at: 7.9, x: .12, y: .30, angle: .48, speed: .125, length: .056, alpha: .56, life: 2.50 },
+        { at: 11.9, x: .80, y: .56, angle: 2.70, speed: .118, length: .052, alpha: .58, life: 2.55 },
+        { at: 16.8, x: .20, y: .16, angle: .58, speed: .105, length: .048, alpha: .50, life: 2.65 },
+        { at: 21.7, x: .74, y: .72, angle: 3.78, speed: .10, length: .044, alpha: .46, life: 2.70 }
+    ];
+
+    const count = reduced ? 90 : 205;
+    for (let i = 0; i < count; i++) {
+        const r = rnd();
+        const bright = r > .88;
+        const medium = !bright && r > .54;
         bgStars.push({
             x: rnd(), y: rnd(),
-            r: bright ? 1.0 + rnd() * 1.15 : (medium ? 0.55 + rnd() * 0.52 : 0.25 + rnd() * 0.35),
-            a: bright ? 0.48 + rnd() * 0.30 : (medium ? 0.23 + rnd() * 0.26 : 0.09 + rnd() * 0.20),
-            twinkle: bright ? 0.35 + rnd() * 0.55 : (medium && rnd() < 0.68 ? 0.20 + rnd() * 0.38 : (rnd() < 0.15 ? 0.16 + rnd() * 0.24 : 0)),
+            radius: bright ? .90 + rnd() * 1.10 : (medium ? .48 + rnd() * .46 : .20 + rnd() * .30),
+            alpha: bright ? .48 + rnd() * .28 : (medium ? .20 + rnd() * .26 : .075 + rnd() * .17),
+            twinkle: bright ? .22 + rnd() * .36 : (medium && rnd() < .38 ? .16 + rnd() * .25 : 0),
             phase: rnd() * Math.PI * 2,
-            depth: 0.22 + rnd() * 1.0,
-            cross: bright && rnd() < 0.42,
-            drift: (rnd() - 0.5) * 0.55
+            depth: .25 + rnd() * .95,
+            cross: bright && rnd() < .28
         });
     }
 
-    // Más lentas: duran más en pantalla y recorren una distancia menor.
-    const shooting = [
-        { at: 4.9,  x: 0.86, y: 0.18, angle: 2.56, speed: 0.15, length: 0.070, alpha: 0.72 },
-        { at: 9.0,  x: 0.14, y: 0.30, angle: 0.46, speed: 0.145, length: 0.066, alpha: 0.64 },
-        { at: 13.4, x: 0.80, y: 0.54, angle: 2.70, speed: 0.14, length: 0.062, alpha: 0.66 },
-        { at: 17.1, x: 0.22, y: 0.16, angle: 0.58, speed: 0.13, length: 0.058, alpha: 0.56 }
-    ];
-
-    let width = 1, height = 1, dpr = 1, startedAt = 0, running = false, raf = 0;
-
     function resize() {
-        width = window.innerWidth; height = window.innerHeight;
+        width = window.innerWidth;
+        height = window.innerHeight;
         dpr = Math.min(window.devicePixelRatio || 1, reduced ? 1 : 1.35);
         canvas.width = Math.floor(width * dpr);
         canvas.height = Math.floor(height * dpr);
-        canvas.style.width = width + 'px'; canvas.style.height = height + 'px';
+        canvas.style.width = width + 'px';
+        canvas.style.height = height + 'px';
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
 
     function clamp(v, a = 0, b = 1) { return Math.max(a, Math.min(b, v)); }
     function smooth(v) { v = clamp(v); return v * v * (3 - 2 * v); }
-    function smoother(v) { v = clamp(v); return v * v * v * (v * (v * 6 - 15) + 10); }
+    function smoother(v) {
+        v = clamp(v);
+        return v * v * v * (v * (v * 6 - 15) + 10);
+    }
 
-    function cinematicTime(now) {
+    function timeNow(now) {
         const M = window.ExperienceMusic;
-        const raw = M && typeof M.now === 'function' ? M.now() : (now - startedAt) / 1000;
-        if (!Number.isFinite(raw) || raw < 0) return (now - startedAt) / 1000;
-        return Math.min(ACTUAL_END, raw);
+        const audio = M && typeof M.now === 'function' ? M.now() : -1;
+        if (Number.isFinite(audio) && audio >= 0) return audio;
+        return (now - startedAt) / 1000;
     }
 
     function camera(t) {
-        const p = smoother((t - LOOK_START) / (LOOK_END - LOOK_START));
-        const ease = smooth(p);
-        // Giro de mirada evidente pero suave hacia otro sector del cielo.
+        const p = smooth((t - LOOK_START) / (LOOK_END - LOOK_START));
         return {
-            x: -width * 0.28 * ease,
-            y: height * 0.035 * Math.sin(ease * Math.PI),
-            zoom: 1 + 0.07 * ease
+            // Giro lateral evidente, pero suave; no es un paneo brusco.
+            x: -width * .20 * p,
+            y: height * .025 * Math.sin(p * Math.PI),
+            zoom: 1 + .085 * p
         };
     }
 
-    function starPath(x, y, r, points = 4) {
-        ctx.beginPath();
-        for (let i = 0; i < points * 2; i++) {
-            const rr = (i % 2 === 0) ? r : r * 0.34;
-            const a = -Math.PI / 2 + i * Math.PI / points;
-            const px = x + Math.cos(a) * rr;
-            const py = y + Math.sin(a) * rr;
-            if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-        }
-        ctx.closePath();
-    }
-
-    function drawStar(x, y, radius, alpha, twinkle, phase, cross, t, emphasis = 1) {
-        const pulse = twinkle ? (0.76 + 0.24 * Math.sin(t * twinkle + phase)) : 1;
-        const a = clamp(alpha * pulse, 0.02, 1);
-        const r = Math.max(0.4, radius * emphasis);
-
-        if (cross && r > 1.05) {
-            const ray = r * 2.65;
-            ctx.strokeStyle = 'rgba(245,248,255,' + (a * 0.23) + ')';
-            ctx.lineWidth = 0.52;
+    function drawStar(x, y, r, alpha, twinkle, phase, cross, t) {
+        const pulse = twinkle ? 1 + .14 * Math.sin(t * twinkle + phase) : 1;
+        const rr = Math.max(.35, r * pulse);
+        if (cross && rr > 1.0) {
+            const ray = rr * 2.6;
+            ctx.strokeStyle = 'rgba(245,248,255,' + (alpha * .20) + ')';
+            ctx.lineWidth = .5;
             ctx.beginPath();
             ctx.moveTo(x - ray, y); ctx.lineTo(x + ray, y);
             ctx.moveTo(x, y - ray); ctx.lineTo(x, y + ray);
             ctx.stroke();
         }
-
-        ctx.fillStyle = 'rgba(255,255,255,' + a + ')';
-        starPath(x, y, r, r > 1.2 ? 4 : 5);
+        ctx.fillStyle = 'rgba(255,255,255,' + alpha + ')';
+        ctx.beginPath();
+        const points = rr > 1.1 ? 4 : 5;
+        for (let i = 0; i < points * 2; i++) {
+            const rad = i % 2 === 0 ? rr : rr * .30;
+            const a = -Math.PI / 2 + i * Math.PI / points;
+            const px = x + Math.cos(a) * rad;
+            const py = y + Math.sin(a) * rad;
+            if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
         ctx.fill();
     }
 
-    function drawSky(t) {
-        // Fondo común: azul de noche visible, sin convertirse en azul plano.
+    function drawBackground(t) {
+        // Azul profundo neutro: negro de borde + azul de atmósfera, nunca «azul sólido».
         const g = ctx.createLinearGradient(0, 0, width, height);
-        g.addColorStop(0, '#0a1c31');
-        g.addColorStop(0.34, '#0e2742');
-        g.addColorStop(0.68, '#0b2038');
-        g.addColorStop(1, '#07182a');
+        g.addColorStop(0, '#030811');
+        g.addColorStop(.30, '#071321');
+        g.addColorStop(.56, '#0a1828');
+        g.addColorStop(.82, '#050e1a');
+        g.addColorStop(1, '#02070d');
         ctx.fillStyle = g;
         ctx.fillRect(0, 0, width, height);
 
-        const depthBand = ctx.createLinearGradient(0, height * 0.08, width, height * 0.92);
-        depthBand.addColorStop(0, 'rgba(128,160,205,0)');
-        depthBand.addColorStop(0.45, 'rgba(158,184,220,.032)');
-        depthBand.addColorStop(0.57, 'rgba(187,202,230,.045)');
-        depthBand.addColorStop(1, 'rgba(128,160,205,0)');
-        ctx.fillStyle = depthBand;
+        // Velo de polvo estelar muy tenue, como una banda irregular de profundidad.
+        const band = ctx.createLinearGradient(width * .02, height * .06, width * .95, height * .86);
+        band.addColorStop(0, 'rgba(125,145,175,0)');
+        band.addColorStop(.38, 'rgba(143,161,188,.020)');
+        band.addColorStop(.50, 'rgba(198,207,222,.040)');
+        band.addColorStop(.62, 'rgba(125,145,175,.020)');
+        band.addColorStop(1, 'rgba(125,145,175,0)');
+        ctx.fillStyle = band;
         ctx.fillRect(0, 0, width, height);
 
         const cam = camera(t);
-        const floatX = Math.sin(t * 0.07) * width * 0.003;
-        const floatY = Math.cos(t * 0.05) * height * 0.002;
+        const floatX = Math.sin(t * .055) * width * .004;
+        const floatY = Math.cos(t * .047) * height * .0025;
 
         for (let i = 0; i < bgStars.length; i++) {
             const s = bgStars[i];
-            let x = s.x * width + cam.x * s.depth + floatX * s.depth + s.drift * t * 0.08;
+            let x = s.x * width + cam.x * s.depth + floatX * s.depth;
             let y = s.y * height + cam.y * s.depth + floatY * s.depth;
             x = ((x % width) + width) % width;
             y = ((y % height) + height) % height;
-            drawStar(x, y, s.r, s.a, s.twinkle, s.phase, s.cross, t, 1);
+            const pulse = s.twinkle ? 1 + .18 * Math.sin(t * s.twinkle + s.phase) : 1;
+            drawStar(x, y, s.radius, clamp(s.alpha * pulse, .018, .92), s.twinkle, s.phase, s.cross, t);
         }
 
         for (let i = 0; i < shooting.length; i++) {
             const s = shooting[i];
             const local = t - s.at;
-            if (local < 0 || local > 2.35) continue;
-            const enter = smoother(Math.min(1, local / 0.42));
-            const leave = 1 - smoother(Math.max(0, (local - 1.15) / 1.20));
-            const fade = Math.min(enter, leave);
-            const distance = smoother(local / 2.35) * width * s.speed;
-            const x = s.x * width + Math.cos(s.angle) * distance;
-            const y = s.y * height + Math.sin(s.angle) * distance;
+            if (local <= 0 || local >= s.life) continue;
+            const u = smoother(local / s.life);
+            const fade = Math.sin((local / s.life) * Math.PI);
+            const travel = u * Math.min(width, height) * s.speed * 2.1;
+            const x = s.x * width + Math.cos(s.angle) * travel;
+            const y = s.y * height + Math.sin(s.angle) * travel;
             const len = Math.min(width, height) * s.length;
             const tx = x - Math.cos(s.angle) * len;
             const ty = y - Math.sin(s.angle) * len;
 
             ctx.save();
             ctx.globalAlpha = s.alpha * fade;
-            ctx.strokeStyle = '#eaf2ff';
-            ctx.lineWidth = 0.58 + fade * 0.26;
+            ctx.strokeStyle = '#f4f7fb';
+            ctx.lineWidth = .65 + .22 * fade;
             ctx.lineCap = 'round';
-            ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(x, y); ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(tx, ty);
+            ctx.lineTo(x, y);
+            ctx.stroke();
             ctx.fillStyle = '#ffffff';
-            ctx.beginPath(); ctx.arc(x, y, 0.88 + fade * 0.45, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath();
+            ctx.arc(x, y, .85 + .45 * fade, 0, Math.PI * 2);
+            ctx.fill();
             ctx.restore();
         }
     }
 
     function drawAquarius(t) {
-        if (t < CONSTELLATION_START || t > CONSTELLATION_END) return;
+        if (t < CONSTELLATION_START) return;
         const p = smooth((t - CONSTELLATION_START) / (CONSTELLATION_END - CONSTELLATION_START));
         const reveal = smoother(p) * AQUARIUS.length;
         const cam = camera(t);
 
         for (let i = 0; i < AQUARIUS.length; i++) {
-            const star = AQUARIUS[i];
+            const s = AQUARIUS[i];
             const local = clamp(reveal - i);
             if (local <= 0) continue;
             const e = smoother(local);
-            const x = star.x / 100 * width + cam.x;
-            const y = star.y / 100 * height + cam.y;
-            const size = 1.30 + (0.10 * ((i * 7) % 5)) + e * 0.92;
-            const alpha = 0.46 + e * (0.40 + 0.06 * ((i * 3) % 4));
-            drawStar(x, y, size, alpha, 0.22 + (i % 5) * 0.08, i * 0.73, i % 4 === 0, t, 1);
+            const x = s.x / 100 * width + cam.x;
+            const y = s.y / 100 * height + cam.y;
+            const radius = 1.25 + ((i * 5) % 4) * .22 + e * .75;
+            const alpha = .36 + e * (.43 + ((i * 3) % 3) * .05);
+            drawStar(x, y, radius, alpha, .18 + (i % 4) * .055, i * .81, i % 5 === 0, t);
         }
     }
 
     function render(now) {
         if (!running) return;
-        const raw = window.ExperienceMusic && typeof window.ExperienceMusic.now === 'function'
-            ? window.ExperienceMusic.now() : (now - startedAt) / 1000;
-        const t = cinematicTime(now);
-        drawSky(t);
+        const t = timeNow(now);
+        drawBackground(t);
         drawAquarius(t);
-
-        // Después de la narrativa el canvas sigue como fondo vivo y ya no vuelve
-        // a dibujar Acuario por encima de las estrellas interactivas.
-        if (Number.isFinite(raw) && raw >= RELEASE_TIME) {
-            // Mantener el mismo cielo, sin ocultarlo ni reiniciarlo.
-            canvas.style.opacity = '1';
-            baseCanvas.style.visibility = 'hidden';
-            if (nebula) nebula.style.visibility = 'hidden';
-        }
         raf = requestAnimationFrame(render);
     }
 
@@ -241,13 +240,27 @@
         startedAt = performance.now();
         canvas.style.display = 'block';
         canvas.style.opacity = '1';
-        // La capa propia se convierte en el fondo común de toda la experiencia.
+        // El cielo de esta capa es el fondo principal hasta el final.
         baseCanvas.style.visibility = 'hidden';
         if (nebula) nebula.style.visibility = 'hidden';
-        resize(); drawSky(0);
+        resize();
         cancelAnimationFrame(raf);
         raf = requestAnimationFrame(render);
     }
+
+    // El final tiene su propio cielo vivo; evitamos el salto a las capas antiguas.
+    const observer = new MutationObserver(function () {
+        if (!document.body.classList.contains('constellation-complete')) return;
+        canvas.style.transition = 'opacity .9s ease';
+        canvas.style.opacity = '0';
+        setTimeout(function () {
+            if (!document.body.classList.contains('constellation-complete')) return;
+            canvas.style.display = 'none';
+            running = false;
+            cancelAnimationFrame(raf);
+        }, 950);
+    });
+    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
     window.addEventListener('resize', resize, { passive: true });
     button.addEventListener('click', begin, { capture: false });
