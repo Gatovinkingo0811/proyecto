@@ -22,12 +22,13 @@
     const bctx = backdrop.getContext('2d', { alpha: false });
     if (!bctx) return;
 
-    let w = 1, h = 1, dpr = 1;
+    let w = 1, h = 1;
     let started = false;
     let startTime = 0;
     let raf = 0;
     let lastFrame = 0;
     let stars = [];
+    let staticStars = [];
     let seed = 271828;
     let cameraX = 0;
     let cameraY = 0;
@@ -44,8 +45,6 @@
     function resize() {
         w = innerWidth;
         h = innerHeight;
-        // 1x evita multiplicar el coste de rasterizado en pantallas HiDPI.
-        dpr = 1;
         canvas.width = w;
         canvas.height = h;
         canvas.style.width = w + 'px';
@@ -61,21 +60,23 @@
 
     function buildStars() {
         stars = [];
+        staticStars = [];
         seed = 271828;
-        // Suficientes para que el cielo se sienta lleno, sin cientos de draw calls.
-        const count = w < 768 ? 90 : 135;
+        const count = w < 768 ? 65 : 100;
         for (let i = 0; i < count; i++) {
             const q = rnd();
-            stars.push({
+            const star = {
                 x: rnd(),
                 y: rnd(),
-                r: q > .93 ? 1.1 + rnd() * 1.25 : q > .60 ? .55 + rnd() * .50 : .25 + rnd() * .25,
-                a: q > .93 ? .62 + rnd() * .20 : q > .60 ? .24 + rnd() * .20 : .09 + rnd() * .12,
-                tw: q > .82 ? .16 + rnd() * .36 : 0,
+                r: q > .93 ? 1.05 + rnd() * 1.1 : q > .60 ? .55 + rnd() * .45 : .25 + rnd() * .22,
+                a: q > .93 ? .60 + rnd() * .20 : q > .60 ? .24 + rnd() * .18 : .09 + rnd() * .10,
+                tw: q > .88 ? .16 + rnd() * .30 : 0,
                 phase: rnd() * Math.PI * 2,
-                depth: .3 + rnd() * .75,
-                cross: q > .96
-            });
+                depth: .3 + rnd() * .70,
+                cross: q > .975
+            };
+            if (star.tw) stars.push(star);
+            else staticStars.push(star);
         }
     }
 
@@ -102,7 +103,6 @@
             bctx.fillRect(0, 0, w, h);
         }
 
-        // Una sola banda suave de Vía Láctea, ya rasterizada en el fondo.
         bctx.save();
         bctx.translate(w * .03, h * .02);
         bctx.rotate(-0.25);
@@ -116,39 +116,37 @@
         bctx.fillRect(-w * .20, -h * .06, w * 1.40, h * 1.12);
         bctx.restore();
 
-        // Polvo muy reducido: textura, no una nube de partículas.
         seed = 919191;
-        const dustCount = w < 768 ? 70 : 120;
+        const dustCount = w < 768 ? 45 : 80;
         for (let i = 0; i < dustCount; i++) {
             const x = rnd() * w;
             const band = .79 - (x / w) * .59;
             const y = (band + (rnd() - .5) * (.035 + rnd() * .08)) * h;
-            const s = .25 + rnd() * .45;
-            bctx.fillStyle = 'rgba(224,233,245,' + (0.012 + rnd() * 0.018) + ')';
+            const s = .25 + rnd() * .40;
+            bctx.fillStyle = 'rgba(224,233,245,' + (0.012 + rnd() * 0.016) + ')';
             bctx.fillRect(x | 0, y | 0, s, s);
+        }
+
+        // Las estrellas que nunca titilan se rasterizan una sola vez.
+        for (let i = 0; i < staticStars.length; i++) {
+            const s = staticStars[i];
+            const x = s.x * w;
+            const y = s.y * h;
+            bctx.fillStyle = 'rgba(255,255,255,' + s.a + ')';
+            const r = Math.max(.5, s.r);
+            bctx.fillRect(Math.round(x - r * .5), Math.round(y - r * .5), Math.max(1, Math.round(r)), Math.max(1, Math.round(r)));
         }
     }
 
-    function drawStar(s, t) {
+    function drawTwinkleStar(s, t) {
         let x = s.x * w + cameraX * s.depth;
         let y = s.y * h + cameraY * s.depth;
         x = x < 0 ? x + w : (x >= w ? x - w : x);
         y = y < 0 ? y + h : (y >= h ? y - h : y);
 
-        const pulse = s.tw ? 0.88 + 0.12 * Math.sin(t * s.tw + s.phase) : 1;
+        const pulse = .88 + .12 * Math.sin(t * s.tw + s.phase);
         const r = Math.max(.35, s.r * zoom * pulse);
         const a = clamp(s.a * pulse, .035, .92);
-
-        if (s.cross && r > 1.2) {
-            const ray = r * 2.8;
-            ctx.strokeStyle = 'rgba(245,248,252,' + (a * .22) + ')';
-            ctx.lineWidth = .45;
-            ctx.beginPath();
-            ctx.moveTo(x - ray, y); ctx.lineTo(x + ray, y);
-            ctx.moveTo(x, y - ray); ctx.lineTo(x, y + ray);
-            ctx.stroke();
-        }
-
         ctx.fillStyle = 'rgba(255,255,255,' + a + ')';
         ctx.fillRect(Math.round(x - r * .5), Math.round(y - r * .5), Math.max(1, Math.round(r)), Math.max(1, Math.round(r)));
     }
@@ -166,20 +164,19 @@
         const tx = x + (fromRight ? .06 : -.06) * w;
         const ty = y - .04 * h;
 
-        ctx.save();
-        ctx.globalAlpha = Math.sin((local / 1.25) * Math.PI) * .46;
+        ctx.globalAlpha = Math.sin((local / 1.25) * Math.PI) * .40;
         ctx.strokeStyle = 'rgba(245,248,252,.72)';
         ctx.lineWidth = .6;
         ctx.lineCap = 'round';
         ctx.beginPath();
         ctx.moveTo(tx, ty); ctx.lineTo(x, y); ctx.stroke();
-        ctx.restore();
+        ctx.globalAlpha = 1;
     }
 
     function frame(now) {
         if (!started) return;
-        // 36 fps: suficiente para un paneo suave y reduce trabajo sostenido.
-        if (lastFrame && now - lastFrame < 27) {
+        // 30 fps: el paneo sigue siendo suave y baja bastante el coste sostenido.
+        if (lastFrame && now - lastFrame < 33) {
             raf = requestAnimationFrame(frame);
             return;
         }
@@ -192,7 +189,7 @@
         zoom = 1 + .020 * settle;
 
         ctx.drawImage(backdrop, 0, 0);
-        for (let i = 0; i < stars.length; i++) drawStar(stars[i], t);
+        for (let i = 0; i < stars.length; i++) drawTwinkleStar(stars[i], t);
         drawMeteor(t, 0);
         drawMeteor(t, 1);
 
@@ -204,6 +201,12 @@
         started = true;
         startTime = performance.now();
         lastFrame = 0;
+
+        // Detiene el cielo anterior: estaba oculto, pero seguía renderizando en segundo plano.
+        if (typeof window.__stopInitialSpaceEnhancement === 'function') {
+            window.__stopInitialSpaceEnhancement();
+        }
+
         resize();
         canvas.style.display = 'block';
 
