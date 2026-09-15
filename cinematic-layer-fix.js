@@ -1,4 +1,4 @@
-/* Capa visual ligera para la intro. El cielo sigue vivo sin sobrecargar el navegador. */
+/* Capa visual muy ligera para la intro. Mantiene movimiento y profundidad con poco trabajo por frame. */
 (function () {
     'use strict';
 
@@ -29,6 +29,9 @@
     let lastFrame = 0;
     let stars = [];
     let seed = 271828;
+    let cameraX = 0;
+    let cameraY = 0;
+    let zoom = 1;
 
     function rnd() {
         seed = (seed * 1664525 + 1013904223) >>> 0;
@@ -41,18 +44,17 @@
     function resize() {
         w = innerWidth;
         h = innerHeight;
-        dpr = Math.min(devicePixelRatio || 1, 1.2);
-
-        canvas.width = Math.floor(w * dpr);
-        canvas.height = Math.floor(h * dpr);
+        // 1x evita multiplicar el coste de rasterizado en pantallas HiDPI.
+        dpr = 1;
+        canvas.width = w;
+        canvas.height = h;
         canvas.style.width = w + 'px';
         canvas.style.height = h + 'px';
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
 
-        backdrop.width = Math.floor(w * dpr);
-        backdrop.height = Math.floor(h * dpr);
-        bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
+        backdrop.width = w;
+        backdrop.height = h;
+        bctx.setTransform(1, 0, 0, 1, 0, 0);
         buildStaticBackdrop();
         buildStars();
     }
@@ -60,19 +62,19 @@
     function buildStars() {
         stars = [];
         seed = 271828;
-        // Mucha profundidad visual con menos objetos reales que dibujar por frame.
-        const count = w < 768 ? 125 : 190;
+        // Suficientes para que el cielo se sienta lleno, sin cientos de draw calls.
+        const count = w < 768 ? 90 : 135;
         for (let i = 0; i < count; i++) {
             const q = rnd();
             stars.push({
                 x: rnd(),
                 y: rnd(),
-                r: q > .94 ? 1.15 + rnd() * 1.35 : q > .63 ? .55 + rnd() * .55 : .22 + rnd() * .28,
-                a: q > .94 ? .60 + rnd() * .24 : q > .63 ? .22 + rnd() * .23 : .08 + rnd() * .13,
-                tw: q > .80 ? .20 + rnd() * .45 : 0,
+                r: q > .93 ? 1.1 + rnd() * 1.25 : q > .60 ? .55 + rnd() * .50 : .25 + rnd() * .25,
+                a: q > .93 ? .62 + rnd() * .20 : q > .60 ? .24 + rnd() * .20 : .09 + rnd() * .12,
+                tw: q > .82 ? .16 + rnd() * .36 : 0,
                 phase: rnd() * Math.PI * 2,
-                depth: .25 + rnd() * .95,
-                cross: q > .95
+                depth: .3 + rnd() * .75,
+                cross: q > .96
             });
         }
     }
@@ -81,72 +83,65 @@
         const g = bctx.createLinearGradient(0, 0, w, h);
         g.addColorStop(0, '#040913');
         g.addColorStop(.28, '#071321');
-        g.addColorStop(.52, '#0b1827');
-        g.addColorStop(.75, '#07111e');
-        g.addColorStop(1, '#03070d');
+        g.addColorStop(.52, '#0a1725');
+        g.addColorStop(.74, '#06101b');
+        g.addColorStop(1, '#02060c');
         bctx.fillStyle = g;
         bctx.fillRect(0, 0, w, h);
 
-        // Atmósfera estática: se calcula una sola vez, no cada frame.
         const haze = [
-            [.16, .20, .43, 'rgba(48,88,130,.065)'],
-            [.74, .34, .34, 'rgba(72,75,118,.045)'],
-            [.49, .82, .54, 'rgba(30,73,108,.045)']
+            [.17, .20, .42, 'rgba(48,88,130,.06)'],
+            [.74, .35, .34, 'rgba(72,76,116,.04)'],
+            [.50, .82, .52, 'rgba(30,73,108,.04)']
         ];
         for (const q of haze) {
-            const rg = bctx.createRadialGradient(
-                q[0] * w, q[1] * h, 0,
-                q[0] * w, q[1] * h, Math.min(w, h) * q[2]
-            );
+            const rg = bctx.createRadialGradient(q[0] * w, q[1] * h, 0, q[0] * w, q[1] * h, Math.min(w, h) * q[2]);
             rg.addColorStop(0, q[3]);
             rg.addColorStop(1, 'rgba(0,0,0,0)');
             bctx.fillStyle = rg;
             bctx.fillRect(0, 0, w, h);
         }
 
-        // Vía Láctea estática y suave. Solo la rotación/mirada se mueve en la capa dinámica.
+        // Una sola banda suave de Vía Láctea, ya rasterizada en el fondo.
         bctx.save();
-        bctx.translate(w * .02, h * .02);
-        bctx.rotate(-0.26);
-        const milk = bctx.createRadialGradient(
-            w * .49, h * .52, 0,
-            w * .49, h * .52, w * .68
-        );
-        milk.addColorStop(0, 'rgba(224,234,246,.060)');
-        milk.addColorStop(.22, 'rgba(195,211,231,.044)');
-        milk.addColorStop(.46, 'rgba(140,163,192,.028)');
-        milk.addColorStop(.72, 'rgba(96,123,157,.014)');
+        bctx.translate(w * .03, h * .02);
+        bctx.rotate(-0.25);
+        const milk = bctx.createRadialGradient(w * .48, h * .52, 0, w * .48, h * .52, w * .67);
+        milk.addColorStop(0, 'rgba(226,235,246,.058)');
+        milk.addColorStop(.24, 'rgba(194,210,231,.042)');
+        milk.addColorStop(.48, 'rgba(139,163,192,.026)');
+        milk.addColorStop(.74, 'rgba(92,120,154,.012)');
         milk.addColorStop(1, 'rgba(0,0,0,0)');
         bctx.fillStyle = milk;
         bctx.fillRect(-w * .20, -h * .06, w * 1.40, h * 1.12);
         bctx.restore();
 
-        // Textura mínima, fija: aporta polvo sin 1.000+ operaciones por frame.
+        // Polvo muy reducido: textura, no una nube de partículas.
         seed = 919191;
-        const dustCount = w < 768 ? 150 : 260;
+        const dustCount = w < 768 ? 70 : 120;
         for (let i = 0; i < dustCount; i++) {
             const x = rnd() * w;
-            const band = .78 - (x / w) * .58;
-            const y = (band + (rnd() - .5) * (.035 + rnd() * .085)) * h;
-            const s = .25 + rnd() * .55;
-            bctx.fillStyle = 'rgba(224,233,245,' + (0.012 + rnd() * 0.025) + ')';
-            bctx.fillRect(Math.floor(x), Math.floor(y), s, s);
+            const band = .79 - (x / w) * .59;
+            const y = (band + (rnd() - .5) * (.035 + rnd() * .08)) * h;
+            const s = .25 + rnd() * .45;
+            bctx.fillStyle = 'rgba(224,233,245,' + (0.012 + rnd() * 0.018) + ')';
+            bctx.fillRect(x | 0, y | 0, s, s);
         }
     }
 
-    function drawStar(s, t, cameraX, cameraY, zoom) {
+    function drawStar(s, t) {
         let x = s.x * w + cameraX * s.depth;
         let y = s.y * h + cameraY * s.depth;
-        x = ((x % w) + w) % w;
-        y = ((y % h) + h) % h;
+        x = x < 0 ? x + w : (x >= w ? x - w : x);
+        y = y < 0 ? y + h : (y >= h ? y - h : y);
 
-        const pulse = s.tw ? 0.86 + 0.14 * Math.sin(t * s.tw + s.phase) : 1;
+        const pulse = s.tw ? 0.88 + 0.12 * Math.sin(t * s.tw + s.phase) : 1;
         const r = Math.max(.35, s.r * zoom * pulse);
-        const a = clamp(s.a * pulse, .035, .96);
+        const a = clamp(s.a * pulse, .035, .92);
 
-        if (s.cross && r > 1.25) {
-            const ray = r * 3.0;
-            ctx.strokeStyle = 'rgba(245,248,252,' + (a * .25) + ')';
+        if (s.cross && r > 1.2) {
+            const ray = r * 2.8;
+            ctx.strokeStyle = 'rgba(245,248,252,' + (a * .22) + ')';
             ctx.lineWidth = .45;
             ctx.beginPath();
             ctx.moveTo(x - ray, y); ctx.lineTo(x + ray, y);
@@ -159,39 +154,32 @@
     }
 
     function drawMeteor(t, slot) {
-        const cycle = slot === 0 ? 8.5 : 11.5;
-        const start = slot === 0 ? 1.2 : 4.5;
+        const cycle = slot === 0 ? 9.2 : 12.4;
+        const start = slot === 0 ? 1.0 : 4.7;
         const local = (t - start) % cycle;
-        if (local <= 0 || local >= 1.35) return;
+        if (local <= 0 || local >= 1.25) return;
 
-        const p = ease(local / 1.35);
+        const p = ease(local / 1.25);
         const fromRight = slot === 0;
-        const x = (fromRight ? .84 : .18) * w + (fromRight ? -1 : 1) * p * w * .20;
-        const y = (fromRight ? .16 : .22) * h + p * h * .14;
-        const tx = x + (fromRight ? .065 : -.065) * w;
-        const ty = y - .045 * h;
+        const x = (fromRight ? .84 : .17) * w + (fromRight ? -1 : 1) * p * w * .18;
+        const y = (fromRight ? .16 : .22) * h + p * h * .13;
+        const tx = x + (fromRight ? .06 : -.06) * w;
+        const ty = y - .04 * h;
 
         ctx.save();
-        ctx.globalAlpha = Math.sin((local / 1.35) * Math.PI) * .52;
-        const mg = ctx.createLinearGradient(tx, ty, x, y);
-        mg.addColorStop(0, 'rgba(255,255,255,0)');
-        mg.addColorStop(.72, 'rgba(239,244,250,.40)');
-        mg.addColorStop(1, 'rgba(255,255,255,.88)');
-        ctx.strokeStyle = mg;
+        ctx.globalAlpha = Math.sin((local / 1.25) * Math.PI) * .46;
+        ctx.strokeStyle = 'rgba(245,248,252,.72)';
         ctx.lineWidth = .6;
         ctx.lineCap = 'round';
         ctx.beginPath();
-        ctx.moveTo(tx, ty);
-        ctx.lineTo(x, y);
-        ctx.stroke();
+        ctx.moveTo(tx, ty); ctx.lineTo(x, y); ctx.stroke();
         ctx.restore();
     }
 
     function frame(now) {
         if (!started) return;
-
-        // Limita el trabajo a ~45 fps; el movimiento sigue siendo suave, pero el CPU respira.
-        if (lastFrame && now - lastFrame < 22) {
+        // 36 fps: suficiente para un paneo suave y reduce trabajo sostenido.
+        if (lastFrame && now - lastFrame < 27) {
             raf = requestAnimationFrame(frame);
             return;
         }
@@ -199,16 +187,12 @@
 
         const t = (now - startTime) / 1000;
         const settle = 1 - Math.exp(-t / 7.5);
-        const cameraX = -w * .075 * settle + Math.sin(t * .11) * w * .008;
-        const cameraY = Math.sin(t * .065) * h * .009;
-        const zoom = 1 + .022 * settle + Math.sin(t * .025) * .002;
+        cameraX = -w * .07 * settle + Math.sin(t * .10) * w * .007;
+        cameraY = Math.sin(t * .06) * h * .008;
+        zoom = 1 + .020 * settle;
 
-        ctx.drawImage(backdrop, 0, 0, w, h);
-
-        for (let i = 0; i < stars.length; i++) {
-            drawStar(stars[i], t, cameraX, cameraY, zoom);
-        }
-
+        ctx.drawImage(backdrop, 0, 0);
+        for (let i = 0; i < stars.length; i++) drawStar(stars[i], t);
         drawMeteor(t, 0);
         drawMeteor(t, 1);
 
