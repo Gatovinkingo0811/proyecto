@@ -1,7 +1,8 @@
 /*
  * Cielo continuo de toda la experiencia.
- * No modifica la lógica de las 14 estrellas: solo proporciona el fondo vivo
- * que las acompaña desde «Comenzar» hasta que empieza el final.
+ * Solo cambia la capa visual: no toca la lógica ni las posiciones de las 14 estrellas.
+ * Inspirado en cielos de observación real: fondo oscuro, banda de Vía Láctea,
+ * estrellas de distintas magnitudes, polvo tenue y movimiento de cámara desde el primer frame.
  */
 (function () {
     'use strict';
@@ -27,11 +28,9 @@
     const reduced = !!(window.matchMedia &&
         window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
-    // La mirada se mueve desde el cielo general hacia Acuario y allí se asienta.
-    const LOOK_START = 1.2;
-    const LOOK_END = 8.6;
-    const CONSTELLATION_START = 7.0;
-    const CONSTELLATION_END = 14.6;
+    // Acuario aparece después de que el cielo ya esté respirando y moviéndose.
+    const CONSTELLATION_START = 4.8;
+    const CONSTELLATION_END = 12.8;
 
     const AQUARIUS = [
         { id: 1, x: 16, y: 54 }, { id: 2, x: 34, y: 42 },
@@ -57,27 +56,48 @@
     }
 
     const bgStars = [];
+    const dust = [];
     const shooting = [
-        { at: 3.6, x: .84, y: .18, angle: 2.55, speed: .135, length: .060, alpha: .62, life: 2.45 },
-        { at: 7.9, x: .12, y: .30, angle: .48, speed: .125, length: .056, alpha: .56, life: 2.50 },
-        { at: 11.9, x: .80, y: .56, angle: 2.70, speed: .118, length: .052, alpha: .58, life: 2.55 },
-        { at: 16.8, x: .20, y: .16, angle: .58, speed: .105, length: .048, alpha: .50, life: 2.65 },
-        { at: 21.7, x: .74, y: .72, angle: 3.78, speed: .10, length: .044, alpha: .46, life: 2.70 }
+        { at: 1.5, x: .86, y: .17, angle: 2.55, speed: .105, length: .075, alpha: .62, life: 2.6 },
+        { at: 6.2, x: .12, y: .28, angle: .50, speed: .095, length: .070, alpha: .54, life: 2.7 },
+        { at: 10.8, x: .80, y: .54, angle: 2.72, speed: .090, length: .064, alpha: .58, life: 2.8 },
+        { at: 16.0, x: .22, y: .14, angle: .56, speed: .080, length: .058, alpha: .48, life: 2.9 },
+        { at: 21.0, x: .74, y: .74, angle: 3.76, speed: .075, length: .055, alpha: .44, life: 3.0 }
     ];
 
-    const count = reduced ? 90 : 205;
+    // Cielo profundo: muchas estrellas débiles + una pequeña población de estrellas protagonistas.
+    const count = reduced ? 150 : 430;
     for (let i = 0; i < count; i++) {
         const r = rnd();
-        const bright = r > .88;
-        const medium = !bright && r > .54;
+        const bright = r > .945;
+        const medium = !bright && r > .67;
+        const hueRoll = rnd();
         bgStars.push({
-            x: rnd(), y: rnd(),
-            radius: bright ? .90 + rnd() * 1.10 : (medium ? .48 + rnd() * .46 : .20 + rnd() * .30),
-            alpha: bright ? .48 + rnd() * .28 : (medium ? .20 + rnd() * .26 : .075 + rnd() * .17),
-            twinkle: bright ? .22 + rnd() * .36 : (medium && rnd() < .38 ? .16 + rnd() * .25 : 0),
+            x: rnd(),
+            y: rnd(),
+            radius: bright ? 1.00 + rnd() * 1.30 : (medium ? .52 + rnd() * .62 : .16 + rnd() * .34),
+            alpha: bright ? .54 + rnd() * .28 : (medium ? .22 + rnd() * .25 : .065 + rnd() * .15),
+            twinkle: bright ? .25 + rnd() * .55 : (medium && rnd() < .44 ? .12 + rnd() * .36 : 0),
             phase: rnd() * Math.PI * 2,
-            depth: .25 + rnd() * .95,
-            cross: bright && rnd() < .28
+            depth: .18 + rnd() * 1.12,
+            cross: bright && rnd() < .52,
+            tone: hueRoll < .09 ? 'warm' : (hueRoll > .91 ? 'cool' : 'white')
+        });
+    }
+
+    // Polvo estelar concentrado sobre una diagonal irregular, como una Vía Láctea tenue.
+    const dustCount = reduced ? 550 : 1700;
+    for (let i = 0; i < dustCount; i++) {
+        const u = rnd();
+        const center = .82 - u * .60;
+        const spread = .035 + u * .09;
+        dust.push({
+            x: u + (rnd() - .5) * .05,
+            y: center + (rnd() - .5) * spread,
+            size: .18 + rnd() * .54,
+            alpha: .012 + rnd() * .042,
+            drift: (rnd() - .5) * .0006,
+            phase: rnd() * Math.PI * 2
         });
     }
 
@@ -107,30 +127,37 @@
     }
 
     function camera(t) {
-        const p = smooth((t - LOOK_START) / (LOOK_END - LOOK_START));
+        // El movimiento empieza en el mismo instante de «Comenzar».
+        const settle = 1 - Math.exp(-t / 8.5);
         return {
-            // Giro lateral evidente, pero suave; no es un paneo brusco.
-            x: -width * .20 * p,
-            y: height * .025 * Math.sin(p * Math.PI),
-            zoom: 1 + .085 * p
+            x: -width * .115 * settle + Math.sin(t * .10) * width * .010,
+            y: Math.sin(t * .065) * height * .012 + Math.cos(t * .030) * height * .004,
+            zoom: 1 + .028 * settle + Math.sin(t * .028) * .004
         };
     }
 
-    function drawStar(x, y, r, alpha, twinkle, phase, cross, t) {
-        const pulse = twinkle ? 1 + .14 * Math.sin(t * twinkle + phase) : 1;
+    function drawStar(x, y, r, alpha, twinkle, phase, cross, tone, t) {
+        const pulse = twinkle ? 1 + .13 * Math.sin(t * twinkle + phase) : 1;
         const rr = Math.max(.35, r * pulse);
-        if (cross && rr > 1.0) {
-            const ray = rr * 2.6;
-            ctx.strokeStyle = 'rgba(245,248,255,' + (alpha * .20) + ')';
-            ctx.lineWidth = .5;
+
+        if (cross && rr > 1.10) {
+            const ray = rr * 3.0;
+            const rayAlpha = alpha * (.18 + .06 * Math.sin(t * .55 + phase));
+            ctx.strokeStyle = tone === 'cool'
+                ? 'rgba(197,220,255,' + rayAlpha + ')'
+                : 'rgba(250,248,241,' + rayAlpha + ')';
+            ctx.lineWidth = .45;
+            ctx.lineCap = 'round';
             ctx.beginPath();
             ctx.moveTo(x - ray, y); ctx.lineTo(x + ray, y);
             ctx.moveTo(x, y - ray); ctx.lineTo(x, y + ray);
             ctx.stroke();
         }
-        ctx.fillStyle = 'rgba(255,255,255,' + alpha + ')';
+
+        const color = tone === 'warm' ? '255,242,216' : (tone === 'cool' ? '224,239,255' : '255,255,255');
+        ctx.fillStyle = 'rgba(' + color + ',' + alpha + ')';
         ctx.beginPath();
-        const points = rr > 1.1 ? 4 : 5;
+        const points = rr > 1.25 ? 4 : 5;
         for (let i = 0; i < points * 2; i++) {
             const rad = i % 2 === 0 ? rr : rr * .30;
             const a = -Math.PI / 2 + i * Math.PI / points;
@@ -143,40 +170,72 @@
     }
 
     function drawBackground(t) {
-        // Azul profundo neutro: negro de borde + azul de atmósfera, nunca «azul sólido».
         const g = ctx.createLinearGradient(0, 0, width, height);
-        g.addColorStop(0, '#030811');
-        g.addColorStop(.30, '#071321');
-        g.addColorStop(.56, '#0a1828');
-        g.addColorStop(.82, '#050e1a');
-        g.addColorStop(1, '#02070d');
+        g.addColorStop(0, '#020711');
+        g.addColorStop(.25, '#06101e');
+        g.addColorStop(.48, '#09182a');
+        g.addColorStop(.72, '#071321');
+        g.addColorStop(1, '#02060d');
         ctx.fillStyle = g;
         ctx.fillRect(0, 0, width, height);
 
-        // Velo de polvo estelar muy tenue, como una banda irregular de profundidad.
-        const band = ctx.createLinearGradient(width * .02, height * .06, width * .95, height * .86);
-        band.addColorStop(0, 'rgba(125,145,175,0)');
-        band.addColorStop(.38, 'rgba(143,161,188,.020)');
-        band.addColorStop(.50, 'rgba(198,207,222,.040)');
-        band.addColorStop(.62, 'rgba(125,145,175,.020)');
-        band.addColorStop(1, 'rgba(125,145,175,0)');
-        ctx.fillStyle = band;
-        ctx.fillRect(0, 0, width, height);
-
-        const cam = camera(t);
-        const floatX = Math.sin(t * .055) * width * .004;
-        const floatY = Math.cos(t * .047) * height * .0025;
-
-        for (let i = 0; i < bgStars.length; i++) {
-            const s = bgStars[i];
-            let x = s.x * width + cam.x * s.depth + floatX * s.depth;
-            let y = s.y * height + cam.y * s.depth + floatY * s.depth;
-            x = ((x % width) + width) % width;
-            y = ((y % height) + height) % height;
-            const pulse = s.twinkle ? 1 + .18 * Math.sin(t * s.twinkle + s.phase) : 1;
-            drawStar(x, y, s.radius, clamp(s.alpha * pulse, .018, .92), s.twinkle, s.phase, s.cross, t);
+        // Profundidad: nubosidad extremadamente tenue en vez de un bloque azul uniforme.
+        const haze = [
+            { x: .16, y: .18, r: .43, c: 'rgba(42,86,132,.075)' },
+            { x: .76, y: .32, r: .36, c: 'rgba(48,62,111,.055)' },
+            { x: .52, y: .80, r: .54, c: 'rgba(20,72,112,.050)' }
+        ];
+        for (let i = 0; i < haze.length; i++) {
+            const q = haze[i];
+            const rg = ctx.createRadialGradient(
+                q.x * width, q.y * height, 0,
+                q.x * width, q.y * height, Math.min(width, height) * q.r
+            );
+            rg.addColorStop(0, q.c);
+            rg.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = rg;
+            ctx.fillRect(0, 0, width, height);
         }
 
+        // Banda láctea: difusa, ancha e irregular, no una raya.
+        ctx.save();
+        ctx.translate(width * .03, height * .03);
+        ctx.rotate(-0.21);
+        const mw = ctx.createRadialGradient(width * .50, height * .51, 0, width * .50, height * .51, width * .62);
+        mw.addColorStop(0, 'rgba(222,231,244,.065)');
+        mw.addColorStop(.28, 'rgba(174,194,223,.044)');
+        mw.addColorStop(.60, 'rgba(123,151,188,.024)');
+        mw.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = mw;
+        ctx.globalAlpha = .74 + Math.sin(t * .035) * .04;
+        ctx.fillRect(-width * .18, -height * .05, width * 1.36, height * 1.12);
+        ctx.restore();
+
+        // Polvo microscópico para que la banda tenga textura y no parezca un gradiente vacío.
+        const cam = camera(t);
+        for (let i = 0; i < dust.length; i++) {
+            const d = dust[i];
+            let x = d.x * width + cam.x * .17 + t * d.drift * width;
+            let y = d.y * height + cam.y * .10;
+            x = ((x % width) + width) % width;
+            y = ((y % height) + height) % height;
+            const alpha = d.alpha * (.82 + .18 * Math.sin(t * .16 + d.phase));
+            ctx.fillStyle = 'rgba(226,235,247,' + alpha + ')';
+            ctx.fillRect(x, y, d.size, d.size);
+        }
+
+        // Estrellas: las capas de profundidad se desplazan ligeramente de forma diferente.
+        for (let i = 0; i < bgStars.length; i++) {
+            const s = bgStars[i];
+            let x = s.x * width + cam.x * s.depth;
+            let y = s.y * height + cam.y * s.depth;
+            x = ((x % width) + width) % width;
+            y = ((y % height) + height) % height;
+            const pulse = s.twinkle ? .82 + .18 * Math.sin(t * s.twinkle + s.phase) : 1;
+            drawStar(x, y, s.radius * cam.zoom, clamp(s.alpha * pulse, .018, .96), s.twinkle, s.phase, s.cross, s.tone, t);
+        }
+
+        // Meteoros esporádicos: finos y lentos, nunca como líneas de neón.
         for (let i = 0; i < shooting.length; i++) {
             const s = shooting[i];
             const local = t - s.at;
@@ -192,8 +251,12 @@
 
             ctx.save();
             ctx.globalAlpha = s.alpha * fade;
-            ctx.strokeStyle = '#f4f7fb';
-            ctx.lineWidth = .65 + .22 * fade;
+            const mg = ctx.createLinearGradient(tx, ty, x, y);
+            mg.addColorStop(0, 'rgba(240,244,250,0)');
+            mg.addColorStop(.70, 'rgba(240,244,250,.42)');
+            mg.addColorStop(1, 'rgba(255,255,255,.95)');
+            ctx.strokeStyle = mg;
+            ctx.lineWidth = .65 + .18 * fade;
             ctx.lineCap = 'round';
             ctx.beginPath();
             ctx.moveTo(tx, ty);
@@ -201,7 +264,7 @@
             ctx.stroke();
             ctx.fillStyle = '#ffffff';
             ctx.beginPath();
-            ctx.arc(x, y, .85 + .45 * fade, 0, Math.PI * 2);
+            ctx.arc(x, y, .75 + .45 * fade, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
         }
@@ -220,9 +283,9 @@
             const e = smoother(local);
             const x = s.x / 100 * width + cam.x;
             const y = s.y / 100 * height + cam.y;
-            const radius = 1.25 + ((i * 5) % 4) * .22 + e * .75;
-            const alpha = .36 + e * (.43 + ((i * 3) % 3) * .05);
-            drawStar(x, y, radius, alpha, .18 + (i % 4) * .055, i * .81, i % 5 === 0, t);
+            const radius = 1.30 + ((i * 5) % 4) * .24 + e * .72;
+            const alpha = .46 + e * (.39 + ((i * 3) % 3) * .045);
+            drawStar(x, y, radius, alpha, .18 + (i % 4) * .055, i * .81, i % 5 === 0, 'white', t);
         }
     }
 
@@ -240,7 +303,6 @@
         startedAt = performance.now();
         canvas.style.display = 'block';
         canvas.style.opacity = '1';
-        // El cielo de esta capa es el fondo principal hasta el final.
         baseCanvas.style.visibility = 'hidden';
         if (nebula) nebula.style.visibility = 'hidden';
         resize();
@@ -248,7 +310,6 @@
         raf = requestAnimationFrame(render);
     }
 
-    // El final tiene su propio cielo vivo; evitamos el salto a las capas antiguas.
     const observer = new MutationObserver(function () {
         if (!document.body.classList.contains('constellation-complete')) return;
         canvas.style.transition = 'opacity .9s ease';
