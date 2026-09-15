@@ -1,6 +1,6 @@
 /* Acabado visual astronomico: mantiene intactas posiciones, hitboxes y logica. */
-#cinematic-sky,#final-sky-polish{position:fixed!important;inset:0!important;width:100%!important;height:100%!important;pointer-events:none!important}
-#cinematic-sky,#starfield,#final-sky-polish{z-index:1!important}#nebula{z-index:1!important;opacity:0!important}#celestial-map,#zodiac-star-polish{z-index:2!important;pointer-events:none!important}#universe-container{z-index:4!important}
+#final-sky-polish{position:fixed!important;inset:0!important;width:100%!important;height:100%!important;pointer-events:none!important}
+#starfield,#final-sky-polish{z-index:1!important}#starfield{visibility:hidden!important}#nebula{z-index:1!important;opacity:0!important}#celestial-map,#zodiac-star-polish{z-index:2!important;pointer-events:none!important}#universe-container{z-index:4!important}
 #stars-container{pointer-events:none}.star-node{pointer-events:auto;width:48px;height:48px;transition:transform .18s ease-out,opacity .4s ease-out,visibility .4s ease-out}
 .star-node .star-point{position:relative;width:7px;height:7px;border-radius:0;background:#fff;clip-path:polygon(50% 0%,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0% 50%,38% 38%);filter:drop-shadow(0 0 2px rgba(255,255,255,.96));box-shadow:none;transform-origin:center;will-change:transform}
 .star-node .star-point:before,.star-node .star-point:after{content:'';display:block!important;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;border-radius:999px;opacity:.72}
