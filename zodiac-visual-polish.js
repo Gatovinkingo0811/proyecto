@@ -35,27 +35,27 @@
         stars = [];
         for (let i=0;i<count;i++) {
             const roll = rnd();
-            const bright = roll > 0.86;
-            const medium = !bright && roll > 0.56;
+            const bright = roll > 0.84;
+            const medium = !bright && roll > 0.52;
             stars.push({
                 x:rnd(), y:rnd(),
-                r:bright ? .95+rnd()*1.15 : (medium ? .52+rnd()*.45 : .24+rnd()*.32),
-                a:bright ? .48+rnd()*.26 : (medium ? .20+rnd()*.24 : .08+rnd()*.18),
-                twinkle:bright ? .25+rnd()*.42 : (medium&&rnd()<.35 ? .18+rnd()*.24 : 0),
+                r:bright ? .98+rnd()*1.18 : (medium ? .52+rnd()*.48 : .24+rnd()*.34),
+                a:bright ? .50+rnd()*.30 : (medium ? .22+rnd()*.26 : .08+rnd()*.20),
+                twinkle:bright ? .30+rnd()*.55 : (medium&&rnd()<.50 ? .16+rnd()*.36 : 0),
                 phase:rnd()*Math.PI*2,
                 depth:.2+rnd()*.95,
-                cross:bright&&rnd()<.34
+                cross:bright&&rnd()<.40
             });
         }
     }
 
     function drawStar(g,x,y,r,alpha,cross,phase,t) {
-        const pulse = 1 + (cross ? .10*Math.sin(t*.5+phase) : 0);
+        const pulse = 1 + (cross ? .09*Math.sin(t*.45+phase) : 0);
         const rr = Math.max(.4,r*pulse);
         if (cross && rr>1.05) {
             const ray = rr*2.35;
             g.strokeStyle='rgba(245,248,255,'+(alpha*.22)+')';
-            g.lineWidth=.55; g.beginPath();
+            g.lineWidth=.5; g.beginPath();
             g.moveTo(x-ray,y); g.lineTo(x+ray,y); g.moveTo(x,y-ray); g.lineTo(x,y+ray); g.stroke();
         }
         g.fillStyle='rgba(255,255,255,'+alpha+')';
@@ -72,15 +72,21 @@
 
     function drawFinalSky(t) {
         const grad=ctx.createLinearGradient(0,0,0,h);
-        grad.addColorStop(0,'#0a1b30'); grad.addColorStop(.42,'#102b46'); grad.addColorStop(.72,'#0a1d34'); grad.addColorStop(1,'#071526');
+        grad.addColorStop(0,'#0a1c31'); grad.addColorStop(.42,'#102d49'); grad.addColorStop(.72,'#0a2038'); grad.addColorStop(1,'#071628');
         ctx.fillStyle=grad; ctx.fillRect(0,0,w,h);
+        const band=ctx.createLinearGradient(0,h*.12,w,h*.86);
+        band.addColorStop(0,'rgba(120,150,205,0)');
+        band.addColorStop(.45,'rgba(150,176,216,.024)');
+        band.addColorStop(.56,'rgba(185,202,232,.038)');
+        band.addColorStop(1,'rgba(120,150,205,0)');
+        ctx.fillStyle=band; ctx.fillRect(0,0,w,h);
         const driftX=Math.sin(t*.035)*w*.004, driftY=Math.cos(t*.027)*h*.003;
         for(let i=0;i<stars.length;i++){
             const s=stars[i];
-            const pulse=s.twinkle ? .84+.16*Math.sin(t*s.twinkle+s.phase):1;
+            const pulse=s.twinkle ? .74+.26*Math.sin(t*s.twinkle+s.phase):1;
             const x=((s.x*w+driftX*s.depth)%w+w)%w;
             const y=((s.y*h+driftY*s.depth)%h+h)%h;
-            drawStar(ctx,x,y,s.r,clamp(s.a*pulse,.025,.88),s.cross,s.phase,t);
+            drawStar(ctx,x,y,s.r,clamp(s.a*pulse,.025,.94),s.cross,s.phase,t);
         }
     }
 
