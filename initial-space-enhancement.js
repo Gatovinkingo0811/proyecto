@@ -28,7 +28,6 @@
     const reduced = !!(window.matchMedia &&
         window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
-    // Acuario aparece después de que el cielo ya esté respirando y moviéndose.
     const CONSTELLATION_START = 4.8;
     const CONSTELLATION_END = 12.8;
 
@@ -65,7 +64,6 @@
         { at: 21.0, x: .74, y: .74, angle: 3.76, speed: .075, length: .055, alpha: .44, life: 3.0 }
     ];
 
-    // Cielo profundo: muchas estrellas débiles + una pequeña población de estrellas protagonistas.
     const count = reduced ? 150 : 430;
     for (let i = 0; i < count; i++) {
         const r = rnd();
@@ -73,8 +71,7 @@
         const medium = !bright && r > .67;
         const hueRoll = rnd();
         bgStars.push({
-            x: rnd(),
-            y: rnd(),
+            x: rnd(), y: rnd(),
             radius: bright ? 1.00 + rnd() * 1.30 : (medium ? .52 + rnd() * .62 : .16 + rnd() * .34),
             alpha: bright ? .54 + rnd() * .28 : (medium ? .22 + rnd() * .25 : .065 + rnd() * .15),
             twinkle: bright ? .25 + rnd() * .55 : (medium && rnd() < .44 ? .12 + rnd() * .36 : 0),
@@ -85,7 +82,6 @@
         });
     }
 
-    // Polvo estelar concentrado sobre una diagonal irregular, como una Vía Láctea tenue.
     const dustCount = reduced ? 550 : 1700;
     for (let i = 0; i < dustCount; i++) {
         const u = rnd();
@@ -127,7 +123,6 @@
     }
 
     function camera(t) {
-        // El movimiento empieza en el mismo instante de «Comenzar».
         const settle = 1 - Math.exp(-t / 8.5);
         return {
             x: -width * .115 * settle + Math.sin(t * .10) * width * .010,
@@ -139,13 +134,10 @@
     function drawStar(x, y, r, alpha, twinkle, phase, cross, tone, t) {
         const pulse = twinkle ? 1 + .13 * Math.sin(t * twinkle + phase) : 1;
         const rr = Math.max(.35, r * pulse);
-
         if (cross && rr > 1.10) {
             const ray = rr * 3.0;
             const rayAlpha = alpha * (.18 + .06 * Math.sin(t * .55 + phase));
-            ctx.strokeStyle = tone === 'cool'
-                ? 'rgba(197,220,255,' + rayAlpha + ')'
-                : 'rgba(250,248,241,' + rayAlpha + ')';
+            ctx.strokeStyle = tone === 'cool' ? 'rgba(197,220,255,' + rayAlpha + ')' : 'rgba(250,248,241,' + rayAlpha + ')';
             ctx.lineWidth = .45;
             ctx.lineCap = 'round';
             ctx.beginPath();
@@ -153,7 +145,6 @@
             ctx.moveTo(x, y - ray); ctx.lineTo(x, y + ray);
             ctx.stroke();
         }
-
         const color = tone === 'warm' ? '255,242,216' : (tone === 'cool' ? '224,239,255' : '255,255,255');
         ctx.fillStyle = 'rgba(' + color + ',' + alpha + ')';
         ctx.beginPath();
@@ -179,7 +170,6 @@
         ctx.fillStyle = g;
         ctx.fillRect(0, 0, width, height);
 
-        // Profundidad: nubosidad extremadamente tenue en vez de un bloque azul uniforme.
         const haze = [
             { x: .16, y: .18, r: .43, c: 'rgba(42,86,132,.075)' },
             { x: .76, y: .32, r: .36, c: 'rgba(48,62,111,.055)' },
@@ -187,17 +177,13 @@
         ];
         for (let i = 0; i < haze.length; i++) {
             const q = haze[i];
-            const rg = ctx.createRadialGradient(
-                q.x * width, q.y * height, 0,
-                q.x * width, q.y * height, Math.min(width, height) * q.r
-            );
+            const rg = ctx.createRadialGradient(q.x * width, q.y * height, 0, q.x * width, q.y * height, Math.min(width, height) * q.r);
             rg.addColorStop(0, q.c);
             rg.addColorStop(1, 'rgba(0,0,0,0)');
             ctx.fillStyle = rg;
             ctx.fillRect(0, 0, width, height);
         }
 
-        // Banda láctea: difusa, ancha e irregular, no una raya.
         ctx.save();
         ctx.translate(width * .03, height * .03);
         ctx.rotate(-0.21);
@@ -211,7 +197,6 @@
         ctx.fillRect(-width * .18, -height * .05, width * 1.36, height * 1.12);
         ctx.restore();
 
-        // Polvo microscópico para que la banda tenga textura y no parezca un gradiente vacío.
         const cam = camera(t);
         for (let i = 0; i < dust.length; i++) {
             const d = dust[i];
@@ -224,7 +209,6 @@
             ctx.fillRect(x, y, d.size, d.size);
         }
 
-        // Estrellas: las capas de profundidad se desplazan ligeramente de forma diferente.
         for (let i = 0; i < bgStars.length; i++) {
             const s = bgStars[i];
             let x = s.x * width + cam.x * s.depth;
@@ -235,7 +219,6 @@
             drawStar(x, y, s.radius * cam.zoom, clamp(s.alpha * pulse, .018, .96), s.twinkle, s.phase, s.cross, s.tone, t);
         }
 
-        // Meteoros esporádicos: finos y lentos, nunca como líneas de neón.
         for (let i = 0; i < shooting.length; i++) {
             const s = shooting[i];
             const local = t - s.at;
@@ -248,7 +231,6 @@
             const len = Math.min(width, height) * s.length;
             const tx = x - Math.cos(s.angle) * len;
             const ty = y - Math.sin(s.angle) * len;
-
             ctx.save();
             ctx.globalAlpha = s.alpha * fade;
             const mg = ctx.createLinearGradient(tx, ty, x, y);
@@ -258,14 +240,9 @@
             ctx.strokeStyle = mg;
             ctx.lineWidth = .65 + .18 * fade;
             ctx.lineCap = 'round';
-            ctx.beginPath();
-            ctx.moveTo(tx, ty);
-            ctx.lineTo(x, y);
-            ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(x, y); ctx.stroke();
             ctx.fillStyle = '#ffffff';
-            ctx.beginPath();
-            ctx.arc(x, y, .75 + .45 * fade, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.beginPath(); ctx.arc(x, y, .75 + .45 * fade, 0, Math.PI * 2); ctx.fill();
             ctx.restore();
         }
     }
@@ -275,7 +252,6 @@
         const p = smooth((t - CONSTELLATION_START) / (CONSTELLATION_END - CONSTELLATION_START));
         const reveal = smoother(p) * AQUARIUS.length;
         const cam = camera(t);
-
         for (let i = 0; i < AQUARIUS.length; i++) {
             const s = AQUARIUS[i];
             const local = clamp(reveal - i);
@@ -309,6 +285,12 @@
         cancelAnimationFrame(raf);
         raf = requestAnimationFrame(render);
     }
+
+    window.__stopInitialSpaceEnhancement = function () {
+        running = false;
+        cancelAnimationFrame(raf);
+        raf = 0;
+    };
 
     const observer = new MutationObserver(function () {
         if (!document.body.classList.contains('constellation-complete')) return;
