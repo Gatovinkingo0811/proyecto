@@ -132,12 +132,22 @@ body.constellation-complete #celestial-map {
     height: 100%;
     z-index: 3;
     transform-origin: 50% 50%;
-    transition: transform 4.5s cubic-bezier(0.22, 1, 0.36, 1);
+    transition: transform 3.4s cubic-bezier(0.22, 1, 0.36, 1), opacity 1.9s ease, filter 1.9s ease;
+}
+
+/* Antes del giro: Acuario está "de lado", fuera de foco, como algo que aún
+   no estamos mirando. Presente en el marcado desde el inicio (sin clase
+   añadida por JS después del primer paint) para que no haya parpadeo. */
+#universe-container.pre-reveal {
+    transform: translate(30vw, -5vh) scale(0.8) rotate(-3deg);
+    opacity: 0.08;
+    filter: blur(3px);
 }
 
 /* When the finale begins, the sky pulls away to reveal the full zodiac */
 #universe-container.zoom-out {
     transform: scale(0.3);
+    transition: transform 4.5s cubic-bezier(0.22, 1, 0.36, 1), opacity 1.9s ease, filter 1.9s ease;
 }
 
 /* Sin halo/globo central estático: Acuario (fija) habla por sí sola */
@@ -156,9 +166,7 @@ body.constellation-complete #celestial-map {
 }
 
 #universe-container.radiant .star-point {
-    box-shadow: 0 0 14px #ffffff,
-                0 0 24px var(--accent-violet),
-                0 0 40px rgba(244, 114, 182, 0.55);
+    filter: drop-shadow(0 0 8px #ffffff) drop-shadow(0 0 16px var(--accent-violet)) drop-shadow(0 0 26px rgba(244, 114, 182, 0.5));
     animation: radiantStar 4s ease-in-out infinite alternate;
 }
 
@@ -189,8 +197,9 @@ body.constellation-complete #celestial-map {
 }
 
 .const-line {
+    fill: none;
     stroke: var(--line-color);
-    stroke-width: 1.5;
+    stroke-width: 1.3;
     stroke-linecap: round;
     stroke-dasharray: 4 4;
     /* Las líneas nacen únicamente al descubrir sus dos extremos: nada de
@@ -209,23 +218,24 @@ body.constellation-complete #celestial-map {
 }
 
 .const-line.active {
+    fill: none;
     stroke: var(--line-active-color);
-    stroke-width: 2.4;
+    stroke-width: 2;
     stroke-dasharray: none;
-    stroke-opacity: 1;
+    stroke-opacity: 0.92;
     pointer-events: none;
-    filter: drop-shadow(0 0 6px rgba(196, 181, 253, 0.95)) drop-shadow(0 0 14px rgba(167, 139, 250, 0.6));
+    filter: drop-shadow(0 0 5px rgba(196, 181, 253, 0.85)) drop-shadow(0 0 11px rgba(167, 139, 250, 0.5));
     animation: lineGlow 3s ease-in-out infinite alternate;
 }
 
 @keyframes lineGlow {
     0% {
-        stroke-opacity: 0.85;
-        stroke-width: 2.2;
+        stroke-opacity: 0.8;
+        stroke-width: 1.8;
     }
     100% {
         stroke-opacity: 1;
-        stroke-width: 2.8;
+        stroke-width: 2.3;
     }
 }
 
@@ -256,13 +266,40 @@ body.constellation-complete #celestial-map {
 }
 
 .star-point {
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
-    background-color: var(--star-dormant);
-    box-shadow: 0 0 8px rgba(190, 200, 240, 0.25);
-    transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+    width: 7px;
+    height: 7px;
     position: relative;
+    background-color: var(--star-dormant);
+    border-radius: 0;
+    clip-path: polygon(50% 0%, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0% 50%, 38% 38%);
+    filter: drop-shadow(0 0 3px rgba(190, 200, 240, 0.35));
+    transition: filter 0.5s ease, background-color 0.5s ease, width 0.5s ease, height 0.5s ease;
+    transform-origin: center;
+}
+
+/* Rayos de difracción: la cruz de luz de una estrella real, no un anillo. */
+.star-point::before,
+.star-point::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    border-radius: 999px;
+    opacity: 0.7;
+}
+
+.star-point::before {
+    width: 1px;
+    height: 15px;
+    background: linear-gradient(to bottom, transparent 0%, rgba(255, 255, 255, 0.08) 18%, rgba(255, 255, 255, 0.85) 50%, rgba(255, 255, 255, 0.08) 82%, transparent 100%);
+}
+
+.star-point::after {
+    width: 15px;
+    height: 1px;
+    background: linear-gradient(to right, transparent 0%, rgba(255, 255, 255, 0.08) 18%, rgba(255, 255, 255, 0.85) 50%, rgba(255, 255, 255, 0.08) 82%, transparent 100%);
 }
 
 /* Dormant State */
@@ -274,11 +311,11 @@ body.constellation-complete #celestial-map {
 @keyframes dormantTwinkle {
     0%, 100% {
         opacity: 0.45;
-        transform: scale(1);
+        transform: scale(1) rotate(0deg);
     }
     50% {
-        opacity: 0.8;
-        transform: scale(1.18);
+        opacity: 0.78;
+        transform: scale(1.15) rotate(4deg);
     }
 }
 
@@ -307,99 +344,62 @@ body.constellation-complete #celestial-map {
 }
 
 .star-node.active .star-point {
-    width: 14px;
-    height: 14px;
+    width: 11px;
+    height: 11px;
     background-color: #ffffff;
-    box-shadow: 0 0 13px var(--star-active-glow),
-                0 0 28px var(--accent-violet),
-                0 0 44px rgba(244, 114, 182, 0.5);
-    animation: activeStarPulse 2s ease-in-out infinite;
+    filter: drop-shadow(0 0 7px var(--star-active-glow)) drop-shadow(0 0 15px var(--accent-violet));
+    animation: activeStarPulse 2.2s ease-in-out infinite;
 }
 
 .star-node.active .star-point::before {
-    content: '';
-    position: absolute;
-    inset: -10px;
-    border-radius: 50%;
-    border: 1.2px dashed rgba(224, 212, 255, 0.85);
-    animation: spinRing 7s linear infinite;
+    height: 26px;
+    opacity: 0.9;
 }
 
 .star-node.active .star-point::after {
-    content: '';
-    position: absolute;
-    inset: -20px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(167, 139, 250, 0.4) 0%, transparent 70%);
-    animation: ripplePulse 2s ease-out infinite;
+    width: 26px;
+    opacity: 0.9;
 }
 
 @keyframes activeStarPulse {
     0%, 100% {
-        transform: scale(1);
-        box-shadow: 0 0 12px var(--star-active-glow), 0 0 24px var(--accent-violet);
+        transform: scale(1) rotate(0deg);
     }
     50% {
-        transform: scale(1.32);
-        box-shadow: 0 0 20px #ffffff, 0 0 38px var(--accent-violet), 0 0 52px rgba(244, 114, 182, 0.6);
+        transform: scale(1.28) rotate(10deg);
     }
 }
 
-@keyframes ripplePulse {
-    0% {
-        transform: scale(0.6);
-        opacity: 0.95;
-    }
-    100% {
-        transform: scale(2.3);
-        opacity: 0;
-    }
-}
-
-@keyframes spinRing {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-/* Reacción al tocar: un destello suave y un anillo de luz que se expande */
+/* Reacción al tocar: un destello suave, sin anillos concéntricos */
 .star-node.touched .star-point {
     background: #ffffff;
     animation: starFlash 0.75s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+.star-node.touched .star-point::before,
 .star-node.touched .star-point::after {
-    content: '';
-    position: absolute;
-    inset: -6px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(255, 255, 255, 0.85) 0%, rgba(167, 139, 250, 0.5) 35%, transparent 70%);
-    animation: touchBurst 0.75s ease-out forwards;
+    animation: rayBurst 0.75s ease-out;
 }
 
 @keyframes starFlash {
     0% {
-        transform: scale(1);
-        box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+        transform: scale(1) rotate(0deg);
+        filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.8));
     }
     35% {
-        transform: scale(2.1);
-        box-shadow: 0 0 30px #ffffff, 0 0 60px var(--accent-violet);
+        transform: scale(1.7) rotate(25deg);
+        filter: drop-shadow(0 0 20px #ffffff) drop-shadow(0 0 34px var(--accent-violet));
     }
     100% {
-        transform: scale(1);
-        box-shadow: 0 0 14px var(--star-active-glow), 0 0 30px var(--accent-violet);
+        transform: scale(1) rotate(0deg);
+        filter: drop-shadow(0 0 8px var(--star-active-glow));
     }
 }
 
-@keyframes touchBurst {
-    0% {
-        transform: scale(0.5);
-        opacity: 1;
-    }
-    100% {
-        transform: scale(3.2);
-        opacity: 0;
-    }
+@keyframes rayBurst {
+    0% { opacity: 0.5; }
+    40% { opacity: 1; }
+    100% { opacity: 0.7; }
 }
 
 /* Discovered Star */
@@ -414,22 +414,21 @@ body.constellation-complete #celestial-map {
 }
 
 .star-node.discovered .star-point {
-    width: 10px;
-    height: 10px;
+    width: 9px;
+    height: 9px;
     background-color: #ffffff;
-    box-shadow: 0 0 12px var(--star-discovered-glow),
-                0 0 24px rgba(167, 139, 250, 0.7);
+    filter: drop-shadow(0 0 6px var(--star-discovered-glow)) drop-shadow(0 0 12px rgba(167, 139, 250, 0.55));
     animation: discoveredTwinkle 4s ease-in-out infinite;
 }
 
 @keyframes discoveredTwinkle {
     0%, 100% {
         opacity: 1;
-        transform: scale(1);
+        transform: scale(1) rotate(0deg);
     }
     50% {
-        opacity: 0.82;
-        transform: scale(1.12);
+        opacity: 0.84;
+        transform: scale(1.08) rotate(-5deg);
     }
 }
 
@@ -646,10 +645,10 @@ body.cinema-lock .star-node {
 }
 
 .star-node.revealed .star-point {
-    width: 6px;
-    height: 6px;
+    width: 5px;
+    height: 5px;
     background-color: rgba(224, 231, 255, 0.9);
-    box-shadow: 0 0 7px rgba(190, 200, 240, 0.35);
+    filter: drop-shadow(0 0 4px rgba(190, 200, 240, 0.35));
     animation: dormantTwinkle 6s ease-in-out infinite;
 }
 
@@ -661,10 +660,8 @@ body.cinema-lock .star-node {
 
 .star-node.special-chosen .star-point {
     background-color: var(--accent-light);
-    box-shadow: 0 0 0 2px rgba(196, 181, 253, 0.5),
-                0 0 24px rgba(167, 139, 250, 0.95),
-                0 0 56px rgba(167, 139, 250, 0.45);
-    transition: background-color 0.9s ease, box-shadow 0.9s ease;
+    filter: drop-shadow(0 0 10px rgba(167, 139, 250, 0.95)) drop-shadow(0 0 22px rgba(167, 139, 250, 0.5));
+    transition: background-color 0.9s ease, filter 0.9s ease;
     animation: specialPulse 1.5s ease-in-out forwards;
 }
 
@@ -686,7 +683,7 @@ body.cinema-lock .star-node {
 .star-node.departed .star-point,
 .star-node.departed .star-point::before,
 .star-node.departed .star-point::after {
-    box-shadow: none;
+    filter: none;
     animation: none;
 }
 
@@ -987,15 +984,18 @@ body.constellation-complete #constellation-lines .const-line {
 }
 
 body.constellation-complete .star-node .star-point {
-    box-shadow: 0 0 15px #ffffff,
-                0 0 35px var(--accent-violet),
-                0 0 60px rgba(236, 72, 153, 0.8);
     animation: completedStarGlow 4s ease-in-out infinite alternate;
 }
 
 @keyframes completedStarGlow {
-    0% { transform: scale(1); filter: brightness(1); }
-    100% { transform: scale(1.2); filter: brightness(1.3); }
+    0% {
+        transform: scale(1);
+        filter: brightness(1) drop-shadow(0 0 9px #ffffff) drop-shadow(0 0 20px var(--accent-violet));
+    }
+    100% {
+        transform: scale(1.2);
+        filter: brightness(1.3) drop-shadow(0 0 14px #ffffff) drop-shadow(0 0 30px var(--accent-violet)) drop-shadow(0 0 44px rgba(236, 72, 153, 0.7));
+    }
 }
 
 /* Specific Mobile Screen Optimizations */
