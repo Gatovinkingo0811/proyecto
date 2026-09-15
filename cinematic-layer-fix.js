@@ -1,4 +1,4 @@
-/* Capa visual de respaldo para la intro. No depende de la música ni modifica la lógica de las 14 estrellas. */
+/* Capa visual ligera para la intro. El cielo sigue vivo sin sobrecargar el navegador. */
 (function () {
     'use strict';
 
@@ -15,172 +15,202 @@
     ].join(';');
     document.body.appendChild(canvas);
 
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { alpha: false });
     if (!ctx) return;
 
-    let w = 1, h = 1, dpr = 1, started = false, startTime = 0, raf = 0;
+    const backdrop = document.createElement('canvas');
+    const bctx = backdrop.getContext('2d', { alpha: false });
+    if (!bctx) return;
+
+    let w = 1, h = 1, dpr = 1;
+    let started = false;
+    let startTime = 0;
+    let raf = 0;
+    let lastFrame = 0;
+    let stars = [];
     let seed = 271828;
-    const stars = [];
-    const dust = [];
 
     function rnd() {
         seed = (seed * 1664525 + 1013904223) >>> 0;
         return seed / 4294967296;
     }
+
     function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
     function ease(v) { v = clamp(v, 0, 1); return v * v * (3 - 2 * v); }
 
     function resize() {
         w = innerWidth;
         h = innerHeight;
-        dpr = Math.min(devicePixelRatio || 1, 1.35);
+        dpr = Math.min(devicePixelRatio || 1, 1.2);
+
         canvas.width = Math.floor(w * dpr);
         canvas.height = Math.floor(h * dpr);
         canvas.style.width = w + 'px';
         canvas.style.height = h + 'px';
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        backdrop.width = Math.floor(w * dpr);
+        backdrop.height = Math.floor(h * dpr);
+        bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        buildStaticBackdrop();
+        buildStars();
     }
 
-    function build() {
-        stars.length = 0;
-        dust.length = 0;
+    function buildStars() {
+        stars = [];
         seed = 271828;
-        const count = w < 768 ? 230 : 420;
+        // Mucha profundidad visual con menos objetos reales que dibujar por frame.
+        const count = w < 768 ? 125 : 190;
         for (let i = 0; i < count; i++) {
             const q = rnd();
             stars.push({
-                x: rnd(), y: rnd(),
-                r: q > .94 ? 1.0 + rnd() * 1.7 : q > .63 ? .48 + rnd() * .65 : .16 + rnd() * .34,
-                a: q > .94 ? .58 + rnd() * .26 : q > .63 ? .20 + rnd() * .25 : .07 + rnd() * .15,
-                tw: q > .82 ? .55 + rnd() * 1.0 : q > .54 ? .18 + rnd() * .52 : 0,
+                x: rnd(),
+                y: rnd(),
+                r: q > .94 ? 1.15 + rnd() * 1.35 : q > .63 ? .55 + rnd() * .55 : .22 + rnd() * .28,
+                a: q > .94 ? .60 + rnd() * .24 : q > .63 ? .22 + rnd() * .23 : .08 + rnd() * .13,
+                tw: q > .80 ? .20 + rnd() * .45 : 0,
                 phase: rnd() * Math.PI * 2,
-                depth: .2 + rnd() * 1.1,
-                cross: q > .955
-            });
-        }
-        const dustCount = w < 768 ? 500 : 1100;
-        for (let i = 0; i < dustCount; i++) {
-            const x = rnd();
-            const center = .18 + x * .56;
-            dust.push({
-                x: x + (rnd() - .5) * .04,
-                y: center + (rnd() - .5) * (.04 + rnd() * .10),
-                r: .15 + rnd() * .48,
-                a: .008 + rnd() * .028,
-                drift: (rnd() - .5) * .00025,
-                phase: rnd() * 6.283
+                depth: .25 + rnd() * .95,
+                cross: q > .95
             });
         }
     }
 
-    function drawStar(x, y, r, a, phase, tw, cross, t) {
-        const pulse = tw ? 1 + .16 * Math.sin(t * tw + phase) : 1;
-        const rr = Math.max(.35, r * pulse);
-        if (cross && rr > 1.15) {
-            const ray = rr * 3.5;
-            ctx.strokeStyle = 'rgba(246,248,252,' + (a * .28) + ')';
-            ctx.lineWidth = .5;
+    function buildStaticBackdrop() {
+        const g = bctx.createLinearGradient(0, 0, w, h);
+        g.addColorStop(0, '#040913');
+        g.addColorStop(.28, '#071321');
+        g.addColorStop(.52, '#0b1827');
+        g.addColorStop(.75, '#07111e');
+        g.addColorStop(1, '#03070d');
+        bctx.fillStyle = g;
+        bctx.fillRect(0, 0, w, h);
+
+        // Atmósfera estática: se calcula una sola vez, no cada frame.
+        const haze = [
+            [.16, .20, .43, 'rgba(48,88,130,.065)'],
+            [.74, .34, .34, 'rgba(72,75,118,.045)'],
+            [.49, .82, .54, 'rgba(30,73,108,.045)']
+        ];
+        for (const q of haze) {
+            const rg = bctx.createRadialGradient(
+                q[0] * w, q[1] * h, 0,
+                q[0] * w, q[1] * h, Math.min(w, h) * q[2]
+            );
+            rg.addColorStop(0, q[3]);
+            rg.addColorStop(1, 'rgba(0,0,0,0)');
+            bctx.fillStyle = rg;
+            bctx.fillRect(0, 0, w, h);
+        }
+
+        // Vía Láctea estática y suave. Solo la rotación/mirada se mueve en la capa dinámica.
+        bctx.save();
+        bctx.translate(w * .02, h * .02);
+        bctx.rotate(-0.26);
+        const milk = bctx.createRadialGradient(
+            w * .49, h * .52, 0,
+            w * .49, h * .52, w * .68
+        );
+        milk.addColorStop(0, 'rgba(224,234,246,.060)');
+        milk.addColorStop(.22, 'rgba(195,211,231,.044)');
+        milk.addColorStop(.46, 'rgba(140,163,192,.028)');
+        milk.addColorStop(.72, 'rgba(96,123,157,.014)');
+        milk.addColorStop(1, 'rgba(0,0,0,0)');
+        bctx.fillStyle = milk;
+        bctx.fillRect(-w * .20, -h * .06, w * 1.40, h * 1.12);
+        bctx.restore();
+
+        // Textura mínima, fija: aporta polvo sin 1.000+ operaciones por frame.
+        seed = 919191;
+        const dustCount = w < 768 ? 150 : 260;
+        for (let i = 0; i < dustCount; i++) {
+            const x = rnd() * w;
+            const band = .78 - (x / w) * .58;
+            const y = (band + (rnd() - .5) * (.035 + rnd() * .085)) * h;
+            const s = .25 + rnd() * .55;
+            bctx.fillStyle = 'rgba(224,233,245,' + (0.012 + rnd() * 0.025) + ')';
+            bctx.fillRect(Math.floor(x), Math.floor(y), s, s);
+        }
+    }
+
+    function drawStar(s, t, cameraX, cameraY, zoom) {
+        let x = s.x * w + cameraX * s.depth;
+        let y = s.y * h + cameraY * s.depth;
+        x = ((x % w) + w) % w;
+        y = ((y % h) + h) % h;
+
+        const pulse = s.tw ? 0.86 + 0.14 * Math.sin(t * s.tw + s.phase) : 1;
+        const r = Math.max(.35, s.r * zoom * pulse);
+        const a = clamp(s.a * pulse, .035, .96);
+
+        if (s.cross && r > 1.25) {
+            const ray = r * 3.0;
+            ctx.strokeStyle = 'rgba(245,248,252,' + (a * .25) + ')';
+            ctx.lineWidth = .45;
             ctx.beginPath();
             ctx.moveTo(x - ray, y); ctx.lineTo(x + ray, y);
             ctx.moveTo(x, y - ray); ctx.lineTo(x, y + ray);
             ctx.stroke();
         }
+
         ctx.fillStyle = 'rgba(255,255,255,' + a + ')';
+        ctx.fillRect(Math.round(x - r * .5), Math.round(y - r * .5), Math.max(1, Math.round(r)), Math.max(1, Math.round(r)));
+    }
+
+    function drawMeteor(t, slot) {
+        const cycle = slot === 0 ? 8.5 : 11.5;
+        const start = slot === 0 ? 1.2 : 4.5;
+        const local = (t - start) % cycle;
+        if (local <= 0 || local >= 1.35) return;
+
+        const p = ease(local / 1.35);
+        const fromRight = slot === 0;
+        const x = (fromRight ? .84 : .18) * w + (fromRight ? -1 : 1) * p * w * .20;
+        const y = (fromRight ? .16 : .22) * h + p * h * .14;
+        const tx = x + (fromRight ? .065 : -.065) * w;
+        const ty = y - .045 * h;
+
+        ctx.save();
+        ctx.globalAlpha = Math.sin((local / 1.35) * Math.PI) * .52;
+        const mg = ctx.createLinearGradient(tx, ty, x, y);
+        mg.addColorStop(0, 'rgba(255,255,255,0)');
+        mg.addColorStop(.72, 'rgba(239,244,250,.40)');
+        mg.addColorStop(1, 'rgba(255,255,255,.88)');
+        ctx.strokeStyle = mg;
+        ctx.lineWidth = .6;
+        ctx.lineCap = 'round';
         ctx.beginPath();
-        const points = rr > 1.25 ? 4 : 5;
-        for (let i = 0; i < points * 2; i++) {
-            const rad = i % 2 === 0 ? rr : rr * .26;
-            const ang = -Math.PI / 2 + i * Math.PI / points;
-            const px = x + Math.cos(ang) * rad;
-            const py = y + Math.sin(ang) * rad;
-            if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-        }
-        ctx.closePath();
-        ctx.fill();
+        ctx.moveTo(tx, ty);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        ctx.restore();
     }
 
     function frame(now) {
         if (!started) return;
+
+        // Limita el trabajo a ~45 fps; el movimiento sigue siendo suave, pero el CPU respira.
+        if (lastFrame && now - lastFrame < 22) {
+            raf = requestAnimationFrame(frame);
+            return;
+        }
+        lastFrame = now;
+
         const t = (now - startTime) / 1000;
+        const settle = 1 - Math.exp(-t / 7.5);
+        const cameraX = -w * .075 * settle + Math.sin(t * .11) * w * .008;
+        const cameraY = Math.sin(t * .065) * h * .009;
+        const zoom = 1 + .022 * settle + Math.sin(t * .025) * .002;
 
-        const g = ctx.createLinearGradient(0, 0, w, h);
-        g.addColorStop(0, '#050a12');
-        g.addColorStop(.24, '#091321');
-        g.addColorStop(.48, '#101b2a');
-        g.addColorStop(.72, '#081420');
-        g.addColorStop(1, '#03070d');
-        ctx.fillStyle = g;
-        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(backdrop, 0, 0, w, h);
 
-        /* Vía Láctea: varias capas difusas para evitar el aspecto de bloque azul. */
-        ctx.save();
-        ctx.translate(w * .02, h * .03);
-        ctx.rotate(-0.28 + Math.sin(t * .035) * .008);
-        const milk = ctx.createRadialGradient(w * .48, h * .54, 0, w * .48, h * .54, w * .68);
-        milk.addColorStop(0, 'rgba(226,235,246,.070)');
-        milk.addColorStop(.20, 'rgba(196,210,229,.050)');
-        milk.addColorStop(.42, 'rgba(144,166,195,.034)');
-        milk.addColorStop(.68, 'rgba(95,122,155,.018)');
-        milk.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = milk;
-        ctx.fillRect(-w * .20, -h * .06, w * 1.40, h * 1.12);
-        ctx.restore();
-
-        const haze = [
-            [.18, .22, .45, 'rgba(43,80,120,.060)'],
-            [.72, .42, .35, 'rgba(72,72,116,.040)'],
-            [.48, .84, .50, 'rgba(28,67,104,.045)']
-        ];
-        for (const q of haze) {
-            const rg = ctx.createRadialGradient(q[0] * w, q[1] * h, 0, q[0] * w, q[1] * h, Math.min(w,h) * q[2]);
-            rg.addColorStop(0, q[3]);
-            rg.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = rg;
-            ctx.fillRect(0, 0, w, h);
+        for (let i = 0; i < stars.length; i++) {
+            drawStar(stars[i], t, cameraX, cameraY, zoom);
         }
 
-        const driftX = Math.sin(t * .07) * w * .006;
-        const driftY = Math.cos(t * .053) * h * .004;
-        for (const d of dust) {
-            const x = ((d.x * w + driftX * .15 + t * d.drift * w) % w + w) % w;
-            const y = ((d.y * h + driftY * .10) % h + h) % h;
-            const a = d.a * (.75 + .25 * Math.sin(t * .25 + d.phase));
-            ctx.fillStyle = 'rgba(227,235,245,' + a + ')';
-            ctx.fillRect(x, y, d.r, d.r);
-        }
-
-        const cameraX = -w * .075 * (1 - Math.exp(-t / 7.5)) + Math.sin(t * .11) * w * .009;
-        const cameraY = Math.sin(t * .065) * h * .010;
-        const zoom = 1 + .024 * (1 - Math.exp(-t / 9));
-        for (const s of stars) {
-            const x = ((s.x * w + cameraX * s.depth) % w + w) % w;
-            const y = ((s.y * h + cameraY * s.depth) % h + h) % h;
-            drawStar(x, y, s.r * zoom, clamp(s.a * (s.tw || .001 ? (.86 + .14 * Math.sin(t * s.tw + s.phase)) : 1), .02, .96), s.phase, s.tw, s.cross, t);
-        }
-
-        /* Dos meteoros suaves que vuelven a aparecer periódicamente. */
-        for (let i = 0; i < 2; i++) {
-            const cycle = 6.5 + i * 4.2;
-            const local = (t - (1.1 + i * 2.0)) % cycle;
-            if (local > 0 && local < 1.7) {
-                const p = ease(local / 1.7);
-                const x = (i ? .82 : .18) * w + (i ? -1 : 1) * p * w * .24;
-                const y = (i ? .18 : .24) * h + p * h * .16;
-                const tx = x + (i ? .08 : -.08) * w;
-                const ty = y - .05 * h;
-                ctx.save();
-                ctx.globalAlpha = Math.sin(local / 1.7 * Math.PI) * .62;
-                const mg = ctx.createLinearGradient(tx, ty, x, y);
-                mg.addColorStop(0, 'rgba(255,255,255,0)');
-                mg.addColorStop(.72, 'rgba(239,244,250,.44)');
-                mg.addColorStop(1, 'rgba(255,255,255,.92)');
-                ctx.strokeStyle = mg;
-                ctx.lineWidth = .65;
-                ctx.lineCap = 'round';
-                ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(x, y); ctx.stroke();
-                ctx.restore();
-            }
-        }
+        drawMeteor(t, 0);
+        drawMeteor(t, 1);
 
         raf = requestAnimationFrame(frame);
     }
@@ -189,22 +219,22 @@
         if (started) return;
         started = true;
         startTime = performance.now();
+        lastFrame = 0;
         resize();
-        build();
         canvas.style.display = 'block';
-        canvas.style.opacity = '1';
-        /* El canvas anterior queda debajo; esta capa es la que manda visualmente. */
+
         const old = document.getElementById('cinematic-sky');
         if (old) old.style.visibility = 'hidden';
         const base = document.getElementById('starfield');
         if (base) base.style.visibility = 'hidden';
         const nebula = document.getElementById('nebula');
         if (nebula) nebula.style.visibility = 'hidden';
-        /* Primer frame sin esperar al siguiente ciclo de RAF. */
+
+        cancelAnimationFrame(raf);
         frame(startTime);
     }
 
-    button.addEventListener('click', begin, { passive: true });
+    button.addEventListener('click', begin);
     window.addEventListener('resize', resize, { passive: true });
     resize();
 })();
