@@ -1,8 +1,8 @@
 /* ========================================================================== 
    Acabado visual nocturno
-   - Estrellas con forma real (no círculos planos) para Acuario.
-   - Conexiones suaves, limpias y solo visibles al descubrir ambos extremos.
-   - El cielo final queda oscuro y estrellado, sin manchas/óvalos decorativos.
+   - Estrellas con forma de estrella real, no círculos planos.
+   - Conexiones suaves y solo visibles al descubrir ambos extremos.
+   - Cielo final oscuro, profundo y estrellado, sin manchas/óvalos decorativos.
    ========================================================================== */
 
 #stars-container {
@@ -20,19 +20,8 @@
     height: 10px;
     border-radius: 0;
     background: #ffffff;
-    clip-path: polygon(
-        50% 0%,
-        61% 38%,
-        100% 50%,
-        61% 62%,
-        50% 100%,
-        39% 62%,
-        0% 50%,
-        39% 38%
-    );
-    filter:
-        drop-shadow(0 0 3px rgba(255,255,255,.95))
-        drop-shadow(0 0 9px rgba(190,205,255,.72));
+    clip-path: polygon(50% 0%, 61% 38%, 100% 50%, 61% 62%, 50% 100%, 39% 62%, 0% 50%, 39% 38%);
+    filter: drop-shadow(0 0 3px rgba(255,255,255,.95)) drop-shadow(0 0 9px rgba(190,205,255,.72));
     box-shadow: none;
     transform-origin: center;
 }
@@ -41,20 +30,14 @@
     width: 16px;
     height: 16px;
     background: #ffffff;
-    filter:
-        drop-shadow(0 0 4px #ffffff)
-        drop-shadow(0 0 12px rgba(210,220,255,.9))
-        drop-shadow(0 0 24px rgba(167,139,250,.52));
+    filter: drop-shadow(0 0 4px #ffffff) drop-shadow(0 0 12px rgba(210,220,255,.9)) drop-shadow(0 0 24px rgba(167,139,250,.52));
 }
 
 .star-node.discovered .star-point {
     width: 12px;
     height: 12px;
     background: #ffffff;
-    filter:
-        drop-shadow(0 0 4px #ffffff)
-        drop-shadow(0 0 11px rgba(200,210,255,.85))
-        drop-shadow(0 0 20px rgba(167,139,250,.50));
+    filter: drop-shadow(0 0 4px #ffffff) drop-shadow(0 0 11px rgba(200,210,255,.85)) drop-shadow(0 0 20px rgba(167,139,250,.50));
 }
 
 .star-node.active .star-point::before,
@@ -71,38 +54,29 @@
     transform: translate(-50%, -50%) scale(1.08);
 }
 
-/* Nada de trazos punteados anticipando la figura. */
+/* Las líneas nacen solo cuando la lógica real las activa. */
 #constellation-lines .const-line {
     stroke: rgba(222,231,248,.68);
     stroke-width: 1.35;
     stroke-linecap: round;
     stroke-linejoin: round;
     stroke-dasharray: none;
+    stroke-dashoffset: 0;
     stroke-opacity: 0;
     pointer-events: none;
     animation: none;
     filter: drop-shadow(0 0 3px rgba(180,205,255,.24));
-    transition: stroke-opacity .65s ease, stroke-width .65s ease, filter .65s ease;
+    transition: stroke-opacity .75s cubic-bezier(.22,1,.36,1), stroke-width .75s cubic-bezier(.22,1,.36,1), filter .75s ease;
 }
 
 #constellation-lines .const-line.active {
     stroke-opacity: 1;
-    stroke: rgba(239,244,255,.90);
+    stroke: rgba(239,244,255,.92);
     stroke-width: 1.75;
-    stroke-dasharray: 1;
-    stroke-dashoffset: 1;
-    animation: constellationTrace .95s cubic-bezier(.22,1,.36,1) forwards;
-    filter:
-        drop-shadow(0 0 3px rgba(220,232,255,.62))
-        drop-shadow(0 0 8px rgba(167,139,250,.30));
+    filter: drop-shadow(0 0 3px rgba(220,232,255,.62)) drop-shadow(0 0 8px rgba(167,139,250,.30));
 }
 
-@keyframes constellationTrace {
-    from { stroke-dashoffset: 1; opacity: .2; }
-    to { stroke-dashoffset: 0; opacity: 1; }
-}
-
-/* El cielo final no necesita la vieja nebulosa por capas. */
+/* En el final dejamos un único cielo limpio detrás de las constelaciones. */
 body.constellation-complete #nebula {
     opacity: 0 !important;
     visibility: hidden !important;
@@ -122,16 +96,9 @@ body.constellation-complete #starfield {
     pointer-events: none !important;
 }
 
-#final-sky-polish {
-    z-index: 1.5;
-}
-
-#zodiac-star-polish {
-    z-index: 2.5;
-}
+#final-sky-polish { z-index: 1.5; }
+#zodiac-star-polish { z-index: 2.5; }
 
 @media (prefers-reduced-motion: reduce) {
-    #constellation-lines .const-line.active {
-        animation-duration: .25s;
-    }
+    #constellation-lines .const-line { transition-duration: .35s; }
 }
