@@ -196,9 +196,14 @@
     let finaleContinueReady = false;
     let anomalyStarted = false;
 
-    // --- INTRO CINEMATOGRÁFICA (negro → agujero negro → universo nuevo) ---
-    // Las estrellas nacen una a una en su fase de "nacimiento" y no son
-    // tocables hasta el fin natural del cine (interactionReady).
+    // --- INTRO: CIELO NOCTURNO REAL + GIRO DE CAMARA HACIA ACUARIO ---
+    // Secuencia corta y fluida (nada de agujero negro ni "viaje" largo):
+    // el cielo nocturno se asienta (estrellas de brillo variado, algunas
+    // titilando, un par de fugaces) y luego la "mirada" gira hacia donde
+    // esta Acuario: el contenedor de la constelacion entra desde un lado,
+    // ligeramente girado y desenfocado, hasta quedar centrado y nitido. En
+    // cuanto ese giro termina, las 14 estrellas ya estan ahi, listas para
+    // tocarse: no hay una fase de "nacimiento" aparte.
     let introTimers = [];
 
     function stopIntroTimers() {
@@ -206,61 +211,27 @@
         introTimers = [];
     }
 
-    // --- INTRO CINEMATOGRÁFICA Sincronizada a la partitura real ---
-    // La música es el reloj maestro. TIMELINE guarda los segundos del tema
-    // (0 = inicio del MP3, duración real 244.008 s) donde ocurren los eventos
-    // visuales. Estos tiempos vienen de un análisis real de energía (RMS) del
-    // MP3 en sus primeros ~32s:
-    //   00:00.00–00:02.43 silencio total (confirmado, rms=0) · 00:02.43 primer
-    //   sonido real · 00:16.15 primer pequeño golpe (rms sube a ~0.046) inicia
-    //   el vuelo · 00:24.5 PRIMER golpe fuerte real (rms pico 0.106) → aparece
-    //   el agujero negro · 00:26.4 SEGUNDO golpe, el más fuerte de este tramo
-    //   (rms pico 0.116) → el horizonte alcanza su máxima intensidad.
-    // A partir de ahí (aproach/entry/void/birth) el ritmo es nuestro, no de un
-    // pico puntual: la travesía se corta corta a propósito para no obligar a
-    // esperar el clímax real de la canción (éste llega mucho después, hacia
-    // 01:50–02:20, y ya sonará de fondo mientras se interactúa con las
-    // estrellas). Con prefers-reduced-motion la secuencia se COMPRIME
-    // proporcionalmente (rmScale) pero SIEMPRE se ejecuta completa.
+    // Tiempos de la secuencia, en segundos reales desde el primer toque. Ya
+    // no dependen de golpes puntuales de la partitura (la musica suena de
+    // fondo, ambiental, mientras el cielo se revela y la camara gira).
     const TIMELINE = {
-        firstSound: 2.43,       // real: fin del silencio, primer sonido
-        riseBegin: 10.0,        // ascenso gradual ya perceptible
-        warpBegin: 16.15,       // real: primer pequeño golpe -> arranca el vuelo
-        holeReveal: 24.5,       // real: golpe fuerte (pico rms) -> aparece Gargantúa
-        holeIntensify: 26.4,    // real: golpe más fuerte -> horizonte al máximo
-        approach: 28.3,         // acercamiento final, la cámara se precipita
-        entry: 30.0,            // se cruza el horizonte
-        voidAt: 31.9,           // corte breve a negro (cruce, no una espera larga)
-        birthStart: 33.4,       // Acuario empieza a nacer
-        birthEnd: 38.0,         // el universo nuevo está completo
-        interactionOpen: 39.5   // fin del cine: se tocan las 14 estrellas
+        firstSound: 1.1,      // fin del negro inicial
+        skyFadeEnd: 4.6,      // el cielo nocturno ya esta asentado
+        turnEnd: 8.0,         // el giro hacia Acuario termina, queda fijo
+        interactionOpen: 8.3  // fin del cine: se tocan las 14 estrellas
     };
 
-    // Comprime la travesía si el usuario pide explícitamente menos movimiento
-    // (0.42× ≈ 72 s). La secuencia NUNCA se salta: solo se acelera.
+    // Comprime la secuencia si el usuario pide menos movimiento. Nunca se
+    // salta un paso, solo se acelera.
     function rmScale() {
-        return prefersReducedMotion ? 0.42 : 1;
+        return prefersReducedMotion ? 0.55 : 1;
     }
-    // Orden suave de nacimiento de Acuario (del borde del ánfora hacia el 14).
-    const BIRTH_REVEAL_ORDER = [1, 8, 2, 3, 12, 4, 5, 6, 9, 11, 10, 7, 13, 14];
 
     const cinema = {
         active: false,
         t0: 0,
         phase: 'hold',
-        birthSent: false,
         conf: {
-            black: 0,
-            hole: false,
-            ex: 0,
-            ey: 0,
-            holeR: 0,
-            lens: 0,
-            disc: 0,
-            ring: 0,
-            scale: 1,
-            warp: 0,
-            galaxyT: 0,
             layers: { far: 0, mid: 0, near: 0 }
         }
     };
@@ -269,88 +240,46 @@
         return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
     }
 
-    const cinemaLockedPhases = ['hold', 'dawn', 'warp', 'blackhole', 'void'];
+    const cinemaLockedPhases = ['hold', 'skyfade', 'turn'];
 
-    // Reacciones de la escena al cambiar de fase (una vez por transición).
+    // Reacciones de la escena al cambiar de fase (una vez por transicion).
     function onCinemaPhase(phase) {
         const nebulaEl = document.getElementById('nebula');
         const backdrop = document.getElementById('intro-backdrop');
-        const M = window.ExperienceMusic;
 
-        // Durante la travesía, Acuario permanece latente (ni líneas ni estrellas
-        // anticipan la figura); en el nacimiento y tras él, se muestra.
+        // Mientras dura la secuencia, Acuario permanece latente (las
+        // estrellas no anticipan la figura); el giro es lo que la revela.
         if (cinemaLockedPhases.indexOf(phase) !== -1) {
             document.body.classList.add('cinema-lock');
         } else {
             document.body.classList.remove('cinema-lock');
         }
 
-        // El velo negro se retira cuando suena el primer sonido (02.43) y el
-        // telón se vuelve transparente al entrar en el vuelo (warp, 16.15s):
-        // el cielo del canvas queda a la vista durante el resto de la travesía.
-        if (phase === 'dawn') {
+        if (phase === 'skyfade') {
             if (backdrop) backdrop.classList.add('dim');
             if (introOverlay) introOverlay.classList.add('cinema-fade');
-        } else if (phase === 'warp' || phase === 'blackhole') {
+        } else if (phase === 'turn') {
             if (introOverlay) introOverlay.classList.add('cinema-clear');
         }
 
         if (phase === 'hold') {
-            if (nebulaEl) nebulaEl.style.opacity = '0.15';
-        } else if (phase === 'dawn') {
-            if (nebulaEl) nebulaEl.style.opacity = '0.25';
-        } else if (phase === 'warp' || phase === 'blackhole') {
-            // Vuelo por el cosmos / Gargantúa: el espacio profundo se mantiene
-            // presente, un poco más vivo que en dawn.
-            if (nebulaEl) nebulaEl.style.opacity = '0.3';
-        } else if (phase === 'void') {
-            // Vacío BREVE (cruce del horizonte, ~1.5s): un respiro corto, no
-            // una espera larga. La música baja un instante y sube enseguida.
-            if (nebulaEl) nebulaEl.style.opacity = '0';
-            if (M) M.duck(true, 0.6);
-        } else if (phase === 'birth' || phase === 'done') {
-            if (nebulaEl) nebulaEl.style.opacity = '0.55';
-            if (M) M.duck(false, 1.2); // el universo nuevo nace: la música vuelve rápido
+            if (nebulaEl) nebulaEl.style.opacity = '0.12';
+        } else if (phase === 'skyfade') {
+            if (nebulaEl) nebulaEl.style.opacity = '0.32';
+        } else if (phase === 'turn' || phase === 'done') {
+            if (nebulaEl) nebulaEl.style.opacity = '0.5';
         }
 
-        if (phase === 'birth' && !cinema.birthSent) {
-            cinema.birthSent = true;
-            scheduleBirthReveal();
+        // El giro: el contenedor de Acuario deja su posicion "de lado,
+        // borrosa" y se centra con nitidez (ver .pre-reveal en style.css).
+        if (phase === 'turn' && universeContainer) {
+            universeContainer.classList.remove('pre-reveal');
         }
     }
 
-    // El universo nuevo: las estrellas de Acuario aparecen una a una (misma
-    // geometría real, sin nodos nuevos). Primero se apagan todas para partir de
-    // cielo vacío y luego se encienden en orden suave DENTRO de la ventana
-    // [birthStart, birthEnd] (33.4s → 38.0s, ≈4.6s). Con prefers-reduced-motion
-    // el revelado se comprime igual que el cine.
-    function scheduleBirthReveal() {
-        Array.prototype.forEach.call(
-            document.querySelectorAll('#stars-container .star-node'),
-            function (n) {
-                n.classList.add('hidden');
-                n.classList.remove('revealed');
-            }
-        );
-        const m = rmScale();
-        const stepMs = 300 * m;
-        const startMs = 200 * m;
-        BIRTH_REVEAL_ORDER.forEach((id, i) => {
-            introTimers.push(setTimeout(() => {
-                const node = document.getElementById('star-node-' + id);
-                if (!node) return;
-                node.classList.remove('hidden');
-                node.classList.add('revealed');
-            }, startMs + i * stepMs));
-        });
-    }
-
-    // Tiempo narrativo del cine. Prioridad total al reloj REAL de la música
-    // (ExperienceMusic.now(), segundos desde el inicio del tema). Si el audio
-    // no está sonando (sin archivo, autoplay bloqueado o cargando), se usa un
-    // reloj local monótono equivalente que arranca con el cine (mismo toque).
-    // La interacción con las estrellas NO está ligada a este reloj: solo abre
-    // cuando TIMELINE.interactionOpen se alcanza → finishCinematic().
+    // Tiempo narrativo: usa el reloj real de la musica cuando esta sonando
+    // (para que todo comparta un unico reloj coherente), y un reloj local
+    // equivalente si el audio no esta disponible.
     function cinematicSeconds() {
         const M = window.ExperienceMusic;
         if (M && typeof M.isPlaying === 'function' && M.isPlaying()) {
@@ -360,21 +289,18 @@
         return (performance.now() - cinema.t0) / 1000;
     }
 
-    // Mientras la partitura suena, el reloj maestro de la música puede estar
-    // disparando hitos (crescendo, fade final). El starfield en modo estático
-    // debe permanecer encendido para drenar esos eventos (flush() vive en el
-    // bucle); se apaga en cuanto el tema deja de sonar.
+    // Mientras la partitura suena, el reloj maestro de la musica puede estar
+    // disparando hitos (crescendo, fade final). El starfield en modo
+    // estatico debe permanecer encendido para drenar esos eventos (flush()
+    // vive en el bucle); se apaga en cuanto el tema deja de sonar.
     function musicStillRelevant() {
         const M = window.ExperienceMusic;
         return !!(M && typeof M.isPlaying === 'function' && M.isPlaying());
     }
 
-    // Avanza las fases del cine con el tiempo REAL de la música (0 = inicio del
-    // tema; 244.008 s = 4:04.01). Rellena cinema.conf con la configuración del
-    // frame para el render del canvas: negro silencioso → primeras partículas →
-    // espacio profundo → agujero negro creciendo (lente) → entrada al horizonte
-    // (convergencia) → vacío → renacimiento de Acuario. Todo DENTRO del único
-    // ciclo del starfield. Sin temporizadores de 44 s: el reloj es la partitura.
+    // Avanza las fases: hold (negro breve) -> skyfade (cielo nocturno real,
+    // brillos variados y titileo) -> turn (la camara gira y encuentra
+    // Acuario) -> done. Todo dentro del unico ciclo del starfield.
     function updateCinema() {
         if (cinematicFinished) {
             if (cinema.active) cinema.active = false;
@@ -385,34 +311,13 @@
         const t = cinematicSeconds();
         const m = rmScale();
         const T = TIMELINE;
-        // Puntos de la partitura (escalados si el usuario pide poco movimiento).
         const firstSound = T.firstSound * m;
-        const riseBegin = T.riseBegin * m;
-        const warpBegin = T.warpBegin * m;
-        const holeReveal = T.holeReveal * m;
-        const holeIntensify = T.holeIntensify * m;
-        const approachAt = T.approach * m;
-        const entry = T.entry * m;
-        const voidAt = T.voidAt * m;
-        const birthStart = T.birthStart * m;
-        const birthEnd = T.birthEnd * m;
+        const skyFadeEnd = T.skyFadeEnd * m;
+        const turnEnd = T.turnEnd * m;
         const interactionOpen = T.interactionOpen * m;
 
         const conf = cinema.conf;
-        const w = window.innerWidth;
-        const h = window.innerHeight;
-        conf.ex = w * 0.5;
-        conf.ey = h * 0.44;
-        const baseR = Math.max(48, Math.min(w, h) * 0.16);
-
         let phase = 'hold';
-        let black = 0;
-        let hole = false;
-        let lens = 0;
-        let disc = 0;
-        let ring = 0;
-        let scale = 1;
-        let warp = 0;
         let lf = 0;
         let lm = 0;
         let ln = 0;
@@ -421,129 +326,28 @@
         const seg = (start, end) => (t - start) / (end - start);
 
         if (t < firstSound) {
-            // Silencio real confirmado (rms=0): pantalla prácticamente negra.
             phase = 'hold';
-            lf = 0.02;
-            lm = 0.01;
-            ln = 0.005;
-        } else if (t < riseBegin) {
-            // Primer sonido real: nacen partículas muy sutiles.
-            phase = 'dawn';
-            const p = seg(firstSound, riseBegin);
-            lf = lerp(0.02, 0.14, p);
-            lm = lerp(0.01, 0.05, p);
-            ln = lerp(0.005, 0.02, p);
-        } else if (t < warpBegin) {
-            // Ascenso gradual hacia el primer golpe real (16.15s).
-            phase = 'dawn';
-            const p = seg(riseBegin, warpBegin);
-            lf = lerp(0.14, 0.26, p);
-            lm = lerp(0.05, 0.12, p);
-            ln = lerp(0.02, 0.05, p);
-        } else if (t < holeReveal) {
-            // VUELO POR EL COSMOS: estelas de hiperespacio + galaxias cruzando
-            // (estilo Interstellar), acelerando hacia el primer golpe fuerte
-            // real de la partitura (24.5s, pico de energía verificado).
-            phase = 'warp';
-            const p = seg(warpBegin, holeReveal);
-            warp = lerp(0.15, 0.85, cinemaEase(p));
-            lf = lerp(0.26, 0.55, p);
-            lm = lerp(0.12, 0.42, p);
-            ln = lerp(0.05, 0.24, p);
-            scale = 1 - 0.05 * p;
-        } else if (t < holeIntensify) {
-            // Gargantúa aparece justo en el golpe fuerte real (24.5s).
-            phase = 'blackhole';
-            const p = seg(holeReveal, holeIntensify);
-            hole = true;
-            warp = lerp(0.85, 0.4, p);
-            lens = lerp(0, 0.6, p);
-            ring = lerp(0, 0.6, p);
-            disc = lerp(0, 0.5, p);
-            lf = 0.6;
-            lm = lerp(0.42, 0.55, p);
-            ln = lerp(0.24, 0.34, p);
-        } else if (t < approachAt) {
-            // Segundo golpe real (26.4s, el más fuerte del tramo): el
-            // horizonte alcanza su máxima intensidad, lente al 100%.
-            phase = 'blackhole';
-            const p = seg(holeIntensify, approachAt);
-            hole = true;
-            warp = lerp(0.4, 0.1, p);
-            lens = lerp(0.6, 1, p);
-            ring = lerp(0.6, 1, p);
-            disc = lerp(0.5, 0.9, p);
-            lf = 0.6;
-            lm = 0.55;
-            ln = 0.34;
-        } else if (t < entry) {
-            // Caída final: la cámara se precipita hacia el horizonte.
-            phase = 'blackhole';
-            const p = seg(approachAt, entry);
-            hole = true;
-            lens = 1;
-            ring = 1;
-            disc = 1;
-            scale = lerp(1, 0.45, cinemaEase(p));
-            lf = 0.6;
-            lm = 0.55;
-            ln = 0.34;
-        } else if (t < voidAt) {
-            // CRUCE DEL HORIZONTE: un corte BREVE (~1.9s), no una larga espera.
-            phase = 'blackhole';
-            const p = seg(entry, voidAt);
-            hole = true;
-            lens = 1;
-            ring = 1;
-            disc = lerp(1, 0.5, p);
-            scale = lerp(0.45, 0.05, cinemaEase(p));
-            black = cinemaEase(p);
-            lf = lerp(0.6, 0.05, p);
-            lm = lerp(0.55, 0.04, p);
-            ln = lerp(0.34, 0.02, p);
-        } else if (t < birthStart) {
-            // Vacío breve: un respiro corto antes del renacimiento.
-            phase = 'void';
-            black = 1;
-            lf = 0.02;
-            lm = 0.01;
-            ln = 0;
-        } else if (t < birthEnd) {
-            // NACIMIENTO: el nuevo universo emerge y Acuario aparece estrella
-            // a estrella (revelado real, sin un salto).
-            phase = 'birth';
-            const p = seg(birthStart, birthEnd);
-            black = lerp(1, 0, p);
-            lf = lerp(0.12, 1, Math.min(1, p * 1.1));
-            lm = lerp(0.05, 1, Math.max(0, (p - 0.2) / 0.8));
-            ln = Math.max(0, (p - 0.42) / 0.58);
+            lf = 0.03; lm = 0.015; ln = 0.005;
+        } else if (t < skyFadeEnd) {
+            // Cielo nocturno real: el brillo variado y el titileo de las
+            // capas ya existentes son justamente "unas estrellas con mucho
+            // brillo y otras mas apagadas titilando".
+            phase = 'skyfade';
+            const p = cinemaEase(seg(firstSound, skyFadeEnd));
+            lf = lerp(0.03, 0.85, p);
+            lm = lerp(0.015, 0.9, p);
+            ln = lerp(0.005, 0.95, p);
+        } else if (t < turnEnd) {
+            // Giro hacia Acuario: el cielo de fondo ya esta pleno, lo unico
+            // que cambia ahora es que la constelacion entra en cuadro
+            // (controlado por CSS via la clase .pre-reveal).
+            phase = 'turn';
+            lf = 1; lm = 1; ln = 1;
         } else {
-            // Cielo pleno; el cine se cierra en interactionOpen.
             phase = 'done';
-            black = 0;
-            lf = 1;
-            lm = 1;
-            ln = 1;
+            lf = 1; lm = 1; ln = 1;
         }
 
-        // Progreso continuo del vuelo de galaxias (independiente de las
-        // sub-fases del agujero, para que nunca "salten" de posición): cruza
-        // varias veces la pantalla mientras dura el vuelo + la aproximación.
-        const GALAXY_CYCLES = 3.2;
-        let galaxyT = 0;
-        if (t >= warpBegin && t < entry) {
-            galaxyT = Math.max(0, Math.min(1, seg(warpBegin, entry))) * GALAXY_CYCLES;
-        }
-
-        conf.black = black;
-        conf.hole = hole;
-        conf.lens = lens;
-        conf.disc = disc;
-        conf.ring = ring;
-        conf.scale = Math.max(0.03, scale);
-        conf.holeR = baseR * (0.16 + ring * 0.84);
-        conf.warp = warp;
-        conf.galaxyT = galaxyT;
         conf.layers.far = lf;
         conf.layers.mid = lm;
         conf.layers.near = ln;
@@ -553,127 +357,12 @@
             onCinemaPhase(phase);
         }
 
-        // Fin natural del cine: el universo nuevo ya nació. Es el ÚNICO punto en
-        // el que se habilita la interacción con las 14 estrellas (finishCinematic
-        // es idempotente). Un segundo gesto NUNCA salta la travesía.
+        // Fin natural de la secuencia: el giro ya termino y Acuario esta
+        // centrado. Es el UNICO punto en el que se habilita la interaccion
+        // con las 14 estrellas (finishCinematic es idempotente).
         if (t >= interactionOpen) {
             finishCinematic();
         }
-    }
-
-    // Dibujo del agujero negro (disco + anillo de fotones + núcleo oscuro) sobre
-    // el canvas del starfield. Simple y barato: un par de elipses rotando.
-    function drawBlackHole(ctx, conf, now) {
-        const ex = conf.ex;
-        const ey = conf.ey;
-        const r = conf.holeR;
-        const disc = conf.disc;
-        const ring = conf.ring;
-
-        if (ring > 0.03) {
-            // Resplandor amplio que se derrama del horizonte (luz muy doblada).
-            const glow = ctx.createRadialGradient(ex, ey, r * 0.5, ex, ey, r * 7);
-            glow.addColorStop(0, 'rgba(255, 210, 155, ' + (0.15 * disc) + ')');
-            glow.addColorStop(0.45, 'rgba(170, 140, 255, ' + (0.06 * disc) + ')');
-            glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
-            ctx.fillStyle = glow;
-            ctx.beginPath();
-            ctx.arc(ex, ey, r * 7, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Disco de acreción inclinado: UNA banda ancha con degradado vertical
-            // (más brillante/cálida arriba, más tenue/fría abajo) para sugerir el
-            // "beaming" relativista real de un agujero como Gargantúa, en vez de
-            // dos anillos simétricos.
-            ctx.save();
-            ctx.translate(ex, ey);
-            const wobble = 0.015 * Math.sin(now * 0.0004);
-            ctx.rotate(0.34 + wobble);
-            const discGrad = ctx.createLinearGradient(0, -r * 1.15, 0, r * 1.15);
-            discGrad.addColorStop(0, 'rgba(255, 238, 214, ' + (0.95 * ring) + ')');
-            discGrad.addColorStop(0.5, 'rgba(255, 190, 130, ' + (0.55 * ring) + ')');
-            discGrad.addColorStop(1, 'rgba(140, 100, 90, ' + (0.25 * ring) + ')');
-            ctx.strokeStyle = discGrad;
-            ctx.lineWidth = Math.max(1.6, r * 0.17 * disc);
-            ctx.beginPath();
-            ctx.ellipse(0, 0, r * 2.05, r * 0.6, 0, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.restore();
-
-            // Anillo de fotones: fino, nítido y muy brillante (la silueta que se
-            // reconoce de un agujero negro real, no un aro grueso difuso).
-            ctx.save();
-            ctx.translate(ex, ey);
-            ctx.globalAlpha = Math.min(1, ring);
-            ctx.strokeStyle = 'rgba(255, 246, 226, 0.95)';
-            ctx.lineWidth = Math.max(1, r * 0.045);
-            ctx.shadowColor = 'rgba(255, 224, 178, 0.9)';
-            ctx.shadowBlur = r * 0.5;
-            ctx.beginPath();
-            ctx.ellipse(0, 0, r * 1.04, r * 1.0, 0, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.restore();
-        }
-
-        // Núcleo: horizonte de sucesos oscuro y sólido (las estrellas que caen
-        // tras él desaparecen; nada de luz escapa de dentro).
-        if (r > 0) {
-            const core = ctx.createRadialGradient(ex, ey, r * 0.15, ex, ey, r * 1.05);
-            core.addColorStop(0, '#000000');
-            core.addColorStop(0.8, '#010208');
-            core.addColorStop(1, 'rgba(1, 2, 8, 0)');
-            ctx.fillStyle = core;
-            ctx.beginPath();
-            ctx.arc(ex, ey, r * 1.05, 0, Math.PI * 2);
-            ctx.fill();
-        }
-    }
-
-    // Definición fija de "galaxias" lejanas que cruzan la pantalla durante el
-    // vuelo (fase warp) y la aproximación al agujero: cada una tiene un ángulo
-    // fijo y una paleta propia, y su posición/tamaño se derivan de un progreso
-    // continuo (conf.galaxyT) para que nunca salten de sitio entre frames.
-    const GALAXY_DEFS = [
-        { angle: 0.4, c1: 'rgba(255,196,140,', c2: 'rgba(255,150,90,' },
-        { angle: 2.1, c1: 'rgba(150,190,255,', c2: 'rgba(120,150,255,' },
-        { angle: 3.6, c1: 'rgba(220,160,255,', c2: 'rgba(180,110,255,' },
-        { angle: 5.0, c1: 'rgba(140,230,220,', c2: 'rgba(100,200,190,' },
-        { angle: 1.3, c1: 'rgba(255,210,230,', c2: 'rgba(255,170,200,' },
-        { angle: 4.4, c1: 'rgba(200,220,255,', c2: 'rgba(160,190,255,' }
-    ];
-
-    // Nubes/galaxias lejanas que crecen y se desplazan hacia los bordes de la
-    // pantalla mientras se vuela entre ellas (sensación de atravesar el cosmos
-    // real antes de llegar al agujero negro, no solo estrellas puntuales).
-    function drawGalaxyField(ctx, conf, now) {
-        if (!conf || !conf.galaxyT || conf.galaxyT <= 0) return;
-        const ex = conf.ex;
-        const ey = conf.ey;
-        const maxR = Math.max(160, Math.min(window.innerWidth, window.innerHeight) * 0.62);
-        const n = GALAXY_DEFS.length;
-
-        GALAXY_DEFS.forEach((g, i) => {
-            const prog = (conf.galaxyT + i / n) % 1;
-            const eased = cinemaEase(prog);
-            const dist = eased * maxR;
-            const size = 10 + eased * 95;
-            const alpha = Math.sin(prog * Math.PI) * 0.42;
-            if (alpha <= 0.01) return;
-
-            const wobble = Math.sin(now * 0.00025 + i * 1.7) * 0.12;
-            const ang = g.angle + wobble;
-            const gx = ex + Math.cos(ang) * dist;
-            const gy = ey + Math.sin(ang) * dist * 0.72;
-
-            const grad = ctx.createRadialGradient(gx, gy, 0, gx, gy, size);
-            grad.addColorStop(0, g.c1 + (alpha * 0.9) + ')');
-            grad.addColorStop(0.5, g.c2 + (alpha * 0.4) + ')');
-            grad.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = grad;
-            ctx.beginPath();
-            ctx.ellipse(gx, gy, size, size * 0.55, ang, 0, Math.PI * 2);
-            ctx.fill();
-        });
     }
 
     // Elementos del DOM
@@ -1126,8 +815,8 @@
             ctx.clearRect(0, 0, width, height);
 
             // Estrellas decorativas por capas: brillo independiente, deriva mínima
-            // y (durante la intro cinematográfica) posiciones afectadas por la
-            // lente del agujero negro y por la revelación progresiva por capa.
+            // y (durante la secuencia inicial) la revelación progresiva por
+            // capa (unas estrellas con más brillo, otras titilando tenues).
             for (let i = 0; i < backgroundStars.length; i++) {
                 const s = backgroundStars[i];
                 if (s.twinkle) s.phase += s.twinkle * dt * 0.05;
@@ -1139,84 +828,19 @@
                 if (s.x > width + 2) s.x -= width + 4;
                 if (s.x < -2) s.x += width + 4;
 
-                let px = s.x;
-                let py = s.y;
-                let swallowed = false;
-
-                if (c) {
-                    if (c.scale < 1) {
-                        px = c.ex + (px - c.ex) * c.scale;
-                        py = c.ey + (py - c.ey) * c.scale;
-                    }
-                    if (c.lens > 0) {
-                        const dx = px - c.ex;
-                        const dy = py - c.ey;
-                        const d2 = dx * dx + dy * dy;
-                        const influence = c.holeR * 4;
-                        if (d2 < influence * influence && d2 > 0.0001) {
-                            const dist = Math.sqrt(d2);
-                            if (dist < c.holeR * 1.15) {
-                                swallowed = true; // cae tras el horizonte
-                            } else {
-                                // Anillo de Einstein: desplazamiento tangencial.
-                                const g = c.lens * Math.pow(Math.min(1, (c.holeR * 2.2) / dist), 1.6);
-                                const tx = -dy / dist;
-                                const ty = dx / dist;
-                                px += tx * c.holeR * 0.9 * g;
-                                py += ty * c.holeR * 0.9 * g;
-                                // Tirón suave hacia el disco.
-                                const pullIn = c.lens * Math.max(0, 1 - dist / (c.holeR * 4)) * 24;
-                                px -= (dx / dist) * pullIn;
-                                py -= (dy / dist) * pullIn;
-                            }
-                        }
-                    }
-                }
-
-                if (swallowed || alpha <= 0) continue;
+                if (alpha <= 0) continue;
 
                 if (s.halo) {
                     ctx.globalAlpha = alpha * 0.6;
-                    ctx.drawImage(halo, px - 20, py - 20, 40, 40);
+                    ctx.drawImage(halo, s.x - 20, s.y - 20, 40, 40);
                 }
                 ctx.globalAlpha = alpha;
-
-                // Vuelo por el cosmos (fase warp): las estrellas se estiran en
-                // estelas radiales desde el centro, como un salto a hiperespacio,
-                // en vez de puntos fijos. Reutiliza las mismas posiciones, sin
-                // partículas nuevas.
-                if (c && c.warp > 0.03) {
-                    const wx = px - c.ex;
-                    const wy = py - c.ey;
-                    const wd = Math.hypot(wx, wy) || 1;
-                    const ux = wx / wd;
-                    const uy = wy / wd;
-                    const streakLen = c.warp * (16 + wd * 0.14);
-                    ctx.strokeStyle = 'rgba(222, 230, 255, ' + alpha + ')';
-                    ctx.lineWidth = s.radius * (0.8 + c.warp * 1.3);
-                    ctx.beginPath();
-                    ctx.moveTo(px, py);
-                    ctx.lineTo(px + ux * streakLen, py + uy * streakLen);
-                    ctx.stroke();
-                } else {
-                    ctx.fillStyle = 'rgba(222, 230, 255, 1)';
-                    ctx.beginPath();
-                    ctx.arc(px, py, s.radius, 0, Math.PI * 2);
-                    ctx.fill();
-                }
+                ctx.fillStyle = 'rgba(222, 230, 255, 1)';
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+                ctx.fill();
             }
             ctx.globalAlpha = 1;
-
-            // Galaxias lejanas cruzando durante el vuelo (entre el starfield y
-            // el agujero negro, como fondo cósmico atravesado).
-            if (c) {
-                drawGalaxyField(ctx, c, now);
-            }
-
-            // Agujero negro: disco de acreción y horizonte sobre el cielo.
-            if (c && c.hole) {
-                drawBlackHole(ctx, c, now);
-            }
 
             // Polvo estelar: motas muy tenues con deriva lentísima (profundidad
             // atmosférica sin que se note el efecto). Se omite con movimiento
@@ -1275,14 +899,6 @@
             // Meteoros ocasionales (fuera del final) o un poco más presentes (final),
             // siempre discretos y por debajo de la estrella especial.
             manageMeteors(now);
-
-            // Entrada al agujero negro / vacío: funde todo a negro puro.
-            if (c && c.black > 0) {
-                ctx.globalAlpha = Math.min(1, c.black);
-                ctx.fillStyle = 'rgba(1, 2, 8, 1)';
-                ctx.fillRect(0, 0, width, height);
-                ctx.globalAlpha = 1;
-            }
 
             if (!document.hidden) {
                 // En modo estático (prefers-reduced-motion) el cielo se congela
@@ -1387,6 +1003,25 @@
     }
 
     // --- RENDERIZADO DE LA CONSTELACIÓN ---
+    // Traza un arco suave (curva cuadrática) entre dos estrellas en vez de
+    // una recta: un leve desvío perpendicular proporcional a la distancia,
+    // capado para que nunca se vea exagerado. La dirección del arco es
+    // siempre la misma para el mismo par de estrellas (determinista), así
+    // que no "salta" entre re-renders (resize, descubrimientos, etc.).
+    function smoothLinePath(pA, pB) {
+        const mx = (pA.x + pB.x) / 2;
+        const my = (pA.y + pB.y) / 2;
+        const dx = pB.x - pA.x;
+        const dy = pB.y - pA.y;
+        const dist = Math.hypot(dx, dy) || 1;
+        const nx = -dy / dist;
+        const ny = dx / dist;
+        const bow = Math.min(20, dist * 0.1);
+        const cx = mx + nx * bow;
+        const cy = my + ny * bow;
+        return `M ${pA.x} ${pA.y} Q ${cx} ${cy} ${pB.x} ${pB.y}`;
+    }
+
     function renderConstellation() {
         starsContainer.innerHTML = '';
         svgLines.innerHTML = '';
@@ -1404,26 +1039,24 @@
         // (sus líneas y su nodo no vuelven a dibujarse en ningún re-render).
         const departedIds = specialDeparted ? new Set([14]) : null;
 
-        // 1. Trazar líneas
+        // 1. Trazar líneas (curvas suaves, no rectas: un leve arco orgánico
+        //    entre cada par de estrellas conectadas).
         CONSTELLATION_LINES.forEach(([idA, idB]) => {
             if (departedIds && (departedIds.has(idA) || departedIds.has(idB))) return;
             const pA = coordsMap.get(idA);
             const pB = coordsMap.get(idB);
             if (!pA || !pB) return;
 
-            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-            line.setAttribute('x1', pA.x);
-            line.setAttribute('y1', pA.y);
-            line.setAttribute('x2', pB.x);
-            line.setAttribute('y2', pB.y);
-            line.classList.add('const-line');
-            line.id = `line-${idA}-${idB}`;
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('d', smoothLinePath(pA, pB));
+            path.classList.add('const-line');
+            path.id = `line-${idA}-${idB}`;
 
             if (discoveredStars.has(idA) && discoveredStars.has(idB)) {
-                line.classList.add('active');
+                path.classList.add('active');
             }
 
-            svgLines.appendChild(line);
+            svgLines.appendChild(path);
         });
 
         // 2. Colocar estrellas interactivas
@@ -1788,7 +1421,6 @@
         cinema.active = true;
         cinema.t0 = performance.now();
         cinema.phase = 'hold';
-        cinema.birthSent = false;
         // Aplicar el estado hold de inmediato (nebula tenue visible, cinema-lock
         // activo). De lo contrario onCinemaPhase('hold') nunca dispara porque la
         // phase ya está en 'hold' cuando updateCinema() corre por primera vez.
