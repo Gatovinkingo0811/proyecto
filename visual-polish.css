@@ -1,0 +1,137 @@
+/* ========================================================================== 
+   Acabado visual nocturno
+   - Estrellas con forma real (no círculos planos) para Acuario.
+   - Conexiones suaves, limpias y solo visibles al descubrir ambos extremos.
+   - El cielo final queda oscuro y estrellado, sin manchas/óvalos decorativos.
+   ========================================================================== */
+
+#stars-container {
+    pointer-events: none;
+}
+
+.star-node {
+    pointer-events: auto;
+    width: 48px;
+    height: 48px;
+}
+
+.star-node .star-point {
+    width: 10px;
+    height: 10px;
+    border-radius: 0;
+    background: #ffffff;
+    clip-path: polygon(
+        50% 0%,
+        61% 38%,
+        100% 50%,
+        61% 62%,
+        50% 100%,
+        39% 62%,
+        0% 50%,
+        39% 38%
+    );
+    filter:
+        drop-shadow(0 0 3px rgba(255,255,255,.95))
+        drop-shadow(0 0 9px rgba(190,205,255,.72));
+    box-shadow: none;
+    transform-origin: center;
+}
+
+.star-node.active .star-point {
+    width: 16px;
+    height: 16px;
+    background: #ffffff;
+    filter:
+        drop-shadow(0 0 4px #ffffff)
+        drop-shadow(0 0 12px rgba(210,220,255,.9))
+        drop-shadow(0 0 24px rgba(167,139,250,.52));
+}
+
+.star-node.discovered .star-point {
+    width: 12px;
+    height: 12px;
+    background: #ffffff;
+    filter:
+        drop-shadow(0 0 4px #ffffff)
+        drop-shadow(0 0 11px rgba(200,210,255,.85))
+        drop-shadow(0 0 20px rgba(167,139,250,.50));
+}
+
+.star-node.active .star-point::before,
+.star-node.active .star-point::after,
+.star-node.discovered .star-point::before,
+.star-node.discovered .star-point::after {
+    display: none;
+}
+
+.star-node.active:hover,
+.star-node.active:active,
+.star-node.discovered:hover,
+.star-node.discovered:active {
+    transform: translate(-50%, -50%) scale(1.08);
+}
+
+/* Nada de trazos punteados anticipando la figura. */
+#constellation-lines .const-line {
+    stroke: rgba(222,231,248,.68);
+    stroke-width: 1.35;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: none;
+    stroke-opacity: 0;
+    pointer-events: none;
+    animation: none;
+    filter: drop-shadow(0 0 3px rgba(180,205,255,.24));
+    transition: stroke-opacity .65s ease, stroke-width .65s ease, filter .65s ease;
+}
+
+#constellation-lines .const-line.active {
+    stroke-opacity: 1;
+    stroke: rgba(239,244,255,.90);
+    stroke-width: 1.75;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: constellationTrace .95s cubic-bezier(.22,1,.36,1) forwards;
+    filter:
+        drop-shadow(0 0 3px rgba(220,232,255,.62))
+        drop-shadow(0 0 8px rgba(167,139,250,.30));
+}
+
+@keyframes constellationTrace {
+    from { stroke-dashoffset: 1; opacity: .2; }
+    to { stroke-dashoffset: 0; opacity: 1; }
+}
+
+/* El cielo final no necesita la vieja nebulosa por capas. */
+body.constellation-complete #nebula {
+    opacity: 0 !important;
+    visibility: hidden !important;
+}
+
+body.constellation-complete #starfield {
+    opacity: 0 !important;
+    visibility: hidden !important;
+}
+
+#final-sky-polish,
+#zodiac-star-polish {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none !important;
+}
+
+#final-sky-polish {
+    z-index: 1.5;
+}
+
+#zodiac-star-polish {
+    z-index: 2.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #constellation-lines .const-line.active {
+        animation-duration: .25s;
+    }
+}
