@@ -7,3 +7,5 @@
 .file > div[style*="aspect-ratio:4/3"] > button[data-a="book"]{left:auto!important;right:14%!important;bottom:23%!important;width:19%!important;height:18%!important;background:#17181d!important;border:1px solid #777784!important;border-radius:7px!important;box-shadow:0 0 0 1px rgba(154,130,255,.12),0 0 24px rgba(154,130,255,.08);}
 .file > div[style*="aspect-ratio:4/3"] > button[data-a="book"]:after{content:"EXAMINAR";position:absolute;inset:0;display:grid;place-items:center;color:#c9c4d8;font:9px "JetBrains Mono",monospace;letter-spacing:.08em}
 .file > div[style*="aspect-ratio:4/3"] span{z-index:1}
+
+.testnav{position:fixed;left:0;right:0;bottom:0;display:flex;gap:8px;justify-content:center;padding:10px 12px;background:rgba(8,8,11,.94);border-top:1px solid var(--line);z-index:20}.testbtn{padding:9px 11px;background:#15151b;color:#aaa;border:1px solid #353540;border-radius:6px;font:10px 'JetBrains Mono',monospace;letter-spacing:.05em;cursor:pointer}.content{padding-bottom:72px}
