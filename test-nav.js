@@ -1,0 +1,1 @@
+document.addEventListener('click',function(e){if(e.target&&e.target.dataset&&e.target.dataset.a==='reset'){localStorage.clear();location.reload();}});
